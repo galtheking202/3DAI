@@ -25,6 +25,12 @@ const schema = z.object({
   S3_FORCE_PATH_STYLE: z.stringbool().default(true),
 
   GENERATOR: z.enum(["mock", "atlas"]).default("mock"),
+
+  // Generation pipeline / worker.
+  WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
+  WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
+  MOCK_GENERATOR_MIN_MS: z.coerce.number().int().nonnegative().default(2500),
+  MOCK_GENERATOR_MAX_MS: z.coerce.number().int().nonnegative().default(6000),
 });
 
 const parsed = schema.safeParse(process.env);

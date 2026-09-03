@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getOwnedScene, serializeAsset } from "@/lib/scenes";
+import { generationState } from "@/lib/jobs";
 import AssetUploader from "./AssetUploader";
+import GeneratePanel from "./GeneratePanel";
 
 const KIND_LABEL: Record<string, string> = {
   OBJECT: "Object",
@@ -34,8 +36,8 @@ export default async function ScenePage({
     orderBy: { position: "asc" },
   });
 
+  const genState = (await generationState(scene.id))!;
   const editable = scene.status === "DRAFT";
-  const canGenerate = editable && assets.length > 0;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -72,21 +74,11 @@ export default async function ScenePage({
         editable={editable}
       />
 
-      <div className="mt-10 border-t border-neutral-200 pt-6 dark:border-neutral-800">
-        <button
-          type="button"
-          disabled
-          title="Processing pipeline lands in milestone 3"
-          className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white opacity-40 dark:bg-white dark:text-neutral-900"
-        >
-          Generate 3D
-        </button>
-        <p className="mt-2 text-xs text-neutral-400">
-          {canGenerate
-            ? "Generation is wired up in milestone 3."
-            : "Add at least one file to enable generation."}
-        </p>
-      </div>
+      <GeneratePanel
+        sceneId={scene.id}
+        initialState={genState}
+        assetCount={assets.length}
+      />
     </main>
   );
 }

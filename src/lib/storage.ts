@@ -1,4 +1,6 @@
-import "server-only";
+// No "server-only" marker: this module is also imported by the standalone
+// generation worker (a plain Node process, not a React build). It is never
+// reachable from client code — it pulls in the AWS SDK and node:crypto.
 import {
   S3Client,
   PutObjectCommand,
@@ -46,6 +48,27 @@ export function assetKey(sceneId: string, filename: string): string {
 /** True when `key` belongs to the given scene's asset prefix. */
 export function keyBelongsToScene(key: string, sceneId: string): boolean {
   return key.startsWith(`scenes/${sceneId}/assets/`);
+}
+
+/** Storage key for a generated output (worker writes these). */
+export function outputKey(sceneId: string, ext: string): string {
+  return `scenes/${sceneId}/outputs/${randomBytes(16).toString("hex")}.${ext}`;
+}
+
+/** Upload a buffer we already hold in memory (used by the generation worker). */
+export async function putObject(
+  key: string,
+  body: Buffer | Uint8Array,
+  contentType: string,
+): Promise<void> {
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: env.S3_BUCKET,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    }),
+  );
 }
 
 /** Presigned PUT the browser uses to upload one file directly to storage. */

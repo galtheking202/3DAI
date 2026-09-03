@@ -1,9 +1,19 @@
 # 3DAI
 
 Upload video + photos of an object, apartment, or vehicle → get a shareable,
-access-controlled 3D space. 3D generation runs on a **mock engine** until World
-Labs **Atlas** is available; the rest of the app is built against a single
-`Generator3D` interface so Atlas drops in with no other changes.
+access-controlled 3D space.
+
+**The idea:** when you're selling something — a piece of furniture, a car, an
+apartment, a one-off collectible — flat photos never quite convey the real thing.
+3DAI turns a short walkthrough into a 3D environment the other person can move
+around in, so a buyer can actually grasp the item's size, condition, and shape
+before they commit. You capture once, then hand out links: unlisted, password-
+protected, time-limited, or revocable, so the right people get in and no one else
+does.
+
+3D generation runs on a **mock engine** until World Labs **Atlas** is available;
+the rest of the app is built against a single `Generator3D` interface so Atlas
+drops in with no other changes.
 
 ## Stack
 
@@ -17,8 +27,8 @@ Labs **Atlas** is available; the rest of the app is built against a single
 ## Milestones
 
 1. ~~Scaffold — accounts & schema~~ ✓
-2. **Upload (presigned direct-to-storage) + scene creation** ← current
-3. Processing pipeline (queue + worker + `MockGenerator`)
+2. ~~Upload (presigned direct-to-storage) + scene creation~~ ✓
+3. **Processing pipeline (queue + worker + `MockGenerator`)** ← current
 4. Format-aware 3D viewer
 5. Share links, visibility, password, expiry, revoke, public viewer
 6. Buyer-inspection links, polish, tests
@@ -33,6 +43,7 @@ docker compose up -d          # postgres + minio + mailhog
 npm install
 npm run db:migrate            # creates the schema (first run: prompts for a name, use "init")
 npm run dev                   # http://localhost:3000
+npm run worker                # generation worker — separate terminal
 ```
 
 Sign in: go to `/login`, enter any email. With `EMAIL_TRANSPORT=console` the
@@ -44,7 +55,15 @@ Create a scene: **New scene** on the dashboard → title + type → on the scene
 page, drag in a walkthrough video and photos. Each file is uploaded straight to
 storage with a presigned `PUT` (MP4/MOV/WebM video up to 750 MB, JPEG/PNG/WebP/
 HEIC images up to 30 MB, 60 files per scene); the server then HEADs the object
-and records an `Asset` row. Generation is wired up in milestone 3.
+and records an `Asset` row.
+
+Generate: **Generate 3D** on the scene page enqueues a `Job` and flips the scene
+to `QUEUED`. The worker (`npm run worker`) claims it (`FOR UPDATE SKIP LOCKED`,
+so you can run several), runs the configured `Generator3D` — `MockGenerator`
+uploads a bundled sample GLB after a short delay — writes `SceneOutput` rows and
+sets the scene `READY`. Failures retry up to `WORKER_MAX_ATTEMPTS`, then land in
+`FAILED` with a "Try again" button. The scene page polls while a run is live.
+Swap `GENERATOR=atlas` once World Labs Atlas is available; nothing else changes.
 
 ### Handy URLs
 

@@ -5,8 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "worker": "node --env-file-if-exists=.env --import tsx src/worker/index.ts",
+    "worker:dev": "node --env-file-if-exists=.env --import tsx --watch src/worker/index.ts",
     "build": "prisma generate && next build",
+    "postbuild": "node scripts/postbuild.mjs",
     "start": "next start",
+    "start:web": "prisma migrate deploy && HOSTNAME=0.0.0.0 node .next/standalone/server.js",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:migrate": "prisma migrate dev",
@@ -20,9 +24,11 @@
     "@prisma/client": "^6.13.0",
     "next": "^15.5.0",
     "nodemailer": "^9.1.1",
+    "prisma": "^6.13.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "server-only": "^0.0.1",
+    "tsx": "4.23.13",
     "zod": "^4.0.5"
   },
   "devDependencies": {
@@ -31,7 +37,6 @@
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
-    "prisma": "^6.13.0",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.7.0"
   }

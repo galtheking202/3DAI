@@ -1,0 +1,164 @@
+// 3DAI data model.
+// Milestone 1 uses User / Session / VerificationToken. The rest of the model
+// is defined now so later milestones (upload, pipeline, sharing) need no schema surgery.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions Session[]
+  scenes   Scene[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  id         String   @id @default(cuid())
+  identifier String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([identifier])
+}
+
+enum SceneKind {
+  OBJECT
+  APARTMENT
+  VEHICLE
+  OTHER
+}
+
+enum SceneStatus {
+  DRAFT
+  QUEUED
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum SceneVisibility {
+  PRIVATE
+  UNLISTED
+  PASSWORD
+}
+
+model Scene {
+  id           String          @id @default(cuid())
+  ownerId      String
+  owner        User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  kind         SceneKind       @default(OBJECT)
+  status       SceneStatus     @default(DRAFT)
+  visibility   SceneVisibility @default(PRIVATE)
+  passwordHash String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  assets     Asset[]
+  outputs    SceneOutput[]
+  shareLinks ShareLink[]
+  jobs       Job[]
+
+  @@index([ownerId])
+}
+
+enum AssetType {
+  VIDEO
+  IMAGE
+}
+
+model Asset {
+  id         String    @id @default(cuid())
+  sceneId    String
+  scene      Scene     @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  type       AssetType
+  storageKey String
+  mimeType   String
+  sizeBytes  BigInt
+  position   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([sceneId])
+}
+
+enum OutputFormat {
+  GLB
+  SPLAT
+}
+
+model SceneOutput {
+  id         String       @id @default(cuid())
+  sceneId    String
+  scene      Scene        @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  format     OutputFormat
+  storageKey String
+  meta       Json?
+  createdAt  DateTime     @default(now())
+
+  @@index([sceneId])
+}
+
+model ShareLink {
+  id           String    @id @default(cuid())
+  sceneId      String
+  scene        Scene     @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  slug         String    @unique
+  label        String?
+  passwordHash String?
+  expiresAt    DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([sceneId])
+}
+
+enum JobType {
+  GENERATE_3D
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model Job {
+  id         String    @id @default(cuid())
+  sceneId    String
+  scene      Scene     @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  type       JobType   @default(GENERATE_3D)
+  status     JobStatus @default(PENDING)
+  attempts   Int       @default(0)
+  error      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([sceneId])
+  @@index([status])
+}

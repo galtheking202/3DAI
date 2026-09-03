@@ -1,0 +1,37 @@
+import { z } from "zod";
+
+/**
+ * Server-only environment. Do NOT import this from middleware or client code.
+ */
+const schema = z.object({
+  DATABASE_URL: z.string().min(1),
+  APP_URL: z.string().url().default("http://localhost:3000"),
+  SESSION_COOKIE: z.string().default("sid"),
+
+  EMAIL_TRANSPORT: z.enum(["console", "smtp"]).default("console"),
+  EMAIL_FROM: z.string().default("3DAI <no-reply@localhost>"),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+
+  // Object storage. Defaults target the local MinIO in docker-compose; set the
+  // R2 equivalents in production. Required from milestone 2 onward.
+  S3_ENDPOINT: z.string().url().default("http://localhost:9000"),
+  S3_REGION: z.string().default("auto"),
+  S3_ACCESS_KEY_ID: z.string().min(1).default("minio"),
+  S3_SECRET_ACCESS_KEY: z.string().min(1).default("minio12345"),
+  S3_BUCKET: z.string().min(1).default("3dai-media"),
+  S3_FORCE_PATH_STYLE: z.stringbool().default(true),
+
+  GENERATOR: z.enum(["mock", "atlas"]).default("mock"),
+});
+
+const parsed = schema.safeParse(process.env);
+
+if (!parsed.success) {
+  console.error("Invalid environment variables:", z.treeifyError(parsed.error));
+  throw new Error("Invalid environment variables");
+}
+
+export const env = parsed.data;

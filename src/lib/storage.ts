@@ -36,6 +36,16 @@ const UPLOAD_URL_TTL_SECONDS = 10 * 60;
 const DOWNLOAD_URL_TTL_SECONDS = 60 * 60;
 
 /**
+ * Shorter TTL for links handed to share-link visitors. A presigned URL is a
+ * bearer token: it keeps working for its whole lifetime regardless of what
+ * happens to the ShareLink behind it, so this bounds how long a revoked or
+ * expired link can still pull bytes. It has to outlive a single viewing
+ * session though — Spark streams splats progressively, and an expiry mid-view
+ * would fail those later range requests — hence minutes, not seconds.
+ */
+export const SHARE_URL_TTL_SECONDS = 15 * 60;
+
+/**
  * Storage key for a scene asset. The random segment makes keys unguessable and
  * lets us presign an upload before the Asset row exists. `filename` only
  * contributes a sanitized extension so downloads keep a sensible suffix.
@@ -81,9 +91,12 @@ export function presignUpload(key: string, contentType: string): Promise<string>
 }
 
 /** Presigned GET for reading an object back (viewer / worker download). */
-export function presignDownload(key: string): Promise<string> {
+export function presignDownload(
+  key: string,
+  expiresIn: number = DOWNLOAD_URL_TTL_SECONDS,
+): Promise<string> {
   return getSignedUrl(s3, new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key }), {
-    expiresIn: DOWNLOAD_URL_TTL_SECONDS,
+    expiresIn,
   });
 }
 

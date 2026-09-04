@@ -5,9 +5,12 @@ import { getOwnedScene, serializeAsset } from "@/lib/scenes";
 import { generationState } from "@/lib/jobs";
 import { presignDownload } from "@/lib/storage";
 import type { ViewableOutput } from "@/lib/outputs";
+import { activeShare } from "@/lib/share";
+import { env } from "@/lib/env";
 import AssetUploader from "./AssetUploader";
 import GeneratePanel from "./GeneratePanel";
-import SceneViewer from "./SceneViewer";
+import SceneViewer from "@/components/viewer/SceneViewer";
+import SharePanel from "./SharePanel";
 
 const KIND_LABEL: Record<string, string> = {
   OBJECT: "Object",
@@ -61,6 +64,8 @@ export default async function ScenePage({
     })),
   );
 
+  const share = await activeShare(scene.id, env.APP_URL);
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       <Link
@@ -98,6 +103,12 @@ export default async function ScenePage({
         sceneId={scene.id}
         initialAssets={assets.map(serializeAsset)}
         editable={editable}
+      />
+
+      <SharePanel
+        sceneId={scene.id}
+        initialShare={share}
+        ready={scene.status === "READY" && viewable.length > 0}
       />
 
       <GeneratePanel

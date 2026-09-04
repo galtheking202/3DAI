@@ -11,8 +11,8 @@ import {
 
 // Three.js and Spark are large and only needed once a scene is READY, so they
 // stay out of the dashboard bundle and off the server render entirely.
-const MeshCanvas = dynamic(() => import("./viewer/MeshCanvas"), { ssr: false });
-const SplatCanvas = dynamic(() => import("./viewer/SplatCanvas"), { ssr: false });
+const MeshCanvas = dynamic(() => import("./MeshCanvas"), { ssr: false });
+const SplatCanvas = dynamic(() => import("./SplatCanvas"), { ssr: false });
 
 type LoadState =
   | { phase: "loading"; progress: number }
@@ -22,9 +22,16 @@ type LoadState =
 export default function SceneViewer({
   sceneId,
   outputs,
+  allowDownload = true,
 }: {
   sceneId: string;
   outputs: ViewableOutput[];
+  /**
+   * Off for share-link visitors: they are being shown an item, not handed the
+   * asset. The model still reaches their browser to be rendered at all, so this
+   * removes the obvious affordance rather than protecting the bytes.
+   */
+  allowDownload?: boolean;
 }) {
   const [activeId, setActiveId] = useState(outputs[0]?.id ?? "");
   const [state, setState] = useState<LoadState>({ phase: "loading", progress: 0 });
@@ -72,12 +79,14 @@ export default function SceneViewer({
               Reset view
             </button>
           ) : null}
-          <a
-            href={`/api/scenes/${sceneId}/outputs/${active.id}`}
-            className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200"
-          >
-            Download
-          </a>
+          {allowDownload ? (
+            <a
+              href={`/api/scenes/${sceneId}/outputs/${active.id}`}
+              className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200"
+            >
+              Download
+            </a>
+          ) : null}
         </div>
       </div>
 

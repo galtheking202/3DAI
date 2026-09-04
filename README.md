@@ -179,8 +179,9 @@ links keep working either way — only the slug is stored.
 
 ## Deployment (Railway)
 
-Two services plus managed Postgres. There is no git remote on this repo, so
-deploys go through the CLI rather than a GitHub push:
+Two services plus managed Postgres. The repo has a GitHub remote
+(`galtheking202/3DAI`), but nothing auto-deploys from it — deploys go through
+the CLI:
 
 ```bash
 railway up --service web        # runs `prisma migrate deploy` on boot

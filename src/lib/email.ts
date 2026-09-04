@@ -14,6 +14,24 @@ export async function sendMagicLink(to: string, url: string): Promise<void> {
     return;
   }
 
+  if (env.EMAIL_TRANSPORT === "resend") {
+    if (!env.RESEND_API_KEY) {
+      throw new Error("RESEND_API_KEY is required when EMAIL_TRANSPORT=resend");
+    }
+    const { Resend } = await import("resend");
+    const resend = new Resend(env.RESEND_API_KEY);
+    const { error } = await resend.emails.send({
+      from: env.EMAIL_FROM,
+      to,
+      subject,
+      text,
+    });
+    if (error) {
+      throw new Error(`Resend send failed: ${error.message}`);
+    }
+    return;
+  }
+
   const nodemailer = await import("nodemailer");
   const transport = nodemailer.createTransport({
     host: env.SMTP_HOST,

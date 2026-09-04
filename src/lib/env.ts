@@ -8,12 +8,13 @@ const schema = z.object({
   APP_URL: z.string().url().default("http://localhost:3000"),
   SESSION_COOKIE: z.string().default("sid"),
 
-  EMAIL_TRANSPORT: z.enum(["console", "smtp"]).default("console"),
+  EMAIL_TRANSPORT: z.enum(["console", "smtp", "resend"]).default("console"),
   EMAIL_FROM: z.string().default("3DAI <no-reply@localhost>"),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
 
   // Object storage. Defaults target the local MinIO in docker-compose; set the
   // R2 equivalents in production. Required from milestone 2 onward.

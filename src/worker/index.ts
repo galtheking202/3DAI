@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { presignDownload } from "@/lib/storage";
 import { getGenerator, type GeneratorInput } from "@/lib/generator";
+import { sendSceneReady, sendSceneFailed } from "@/lib/email";
 import {
   claimNextJob,
   completeJob,
@@ -49,7 +50,10 @@ async function runJob(job: ClaimedJob, signal: AbortSignal): Promise<void> {
 
   const scene = await db.scene.findUnique({
     where: { id: job.sceneId },
-    include: { assets: { orderBy: { position: "asc" } } },
+    include: {
+      assets: { orderBy: { position: "asc" } },
+      owner: { select: { email: true } },
+    },
   });
 
   if (!scene) {
@@ -57,6 +61,8 @@ async function runJob(job: ClaimedJob, signal: AbortSignal): Promise<void> {
     log("scene gone, job failed", { jobId: job.id });
     return;
   }
+
+  const sceneUrl = new URL(`/dashboard/scenes/${scene.id}`, env.APP_URL).toString();
 
   await markSceneProcessing(scene.id);
 
@@ -83,6 +89,10 @@ async function runJob(job: ClaimedJob, signal: AbortSignal): Promise<void> {
 
     await completeJob(job.id, scene.id, outputs);
     log("job succeeded", { jobId: job.id, sceneId: scene.id, outputs: outputs.length });
+
+    await sendSceneReady(scene.owner.email, scene.title, sceneUrl).catch((err) => {
+      log("scene-ready email failed", { jobId: job.id, error: (err as Error).message });
+    });
   } catch (err) {
     const message =
       signal.aborted && (err as Error).message === "aborted"
@@ -95,6 +105,12 @@ async function runJob(job: ClaimedJob, signal: AbortSignal): Promise<void> {
       jobId: job.id,
       error: message,
     });
+
+    if (!retried) {
+      await sendSceneFailed(scene.owner.email, scene.title, sceneUrl).catch((err) => {
+        log("scene-failed email failed", { jobId: job.id, error: (err as Error).message });
+      });
+    }
   }
 }
 

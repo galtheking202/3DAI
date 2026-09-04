@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
+import CopyShareLink from "@/components/CopyShareLink";
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft",
@@ -18,8 +20,24 @@ export default async function DashboardPage() {
   const scenes = await db.scene.findMany({
     where: { ownerId: user.id },
     orderBy: { createdAt: "desc" },
-    include: { _count: { select: { assets: true } } },
+    include: {
+      _count: { select: { assets: true } },
+      // Newest live link per scene, so the row can copy it without a round trip.
+      shareLinks: {
+        where: { revokedAt: null },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
   });
+
+  const appUrl = env.APP_URL.replace(/\/$/, "");
+  const shareUrlFor = (links: { slug: string; expiresAt: Date | null }[]) => {
+    const link = links[0];
+    if (!link) return null;
+    if (link.expiresAt && link.expiresAt < new Date()) return null;
+    return `${appUrl}/s/${link.slug}`;
+  };
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -56,10 +74,10 @@ export default async function DashboardPage() {
       ) : (
         <ul className="mt-8 divide-y divide-neutral-200 dark:divide-neutral-800">
           {scenes.map((scene) => (
-            <li key={scene.id}>
+            <li key={scene.id} className="flex items-center gap-3 py-3">
               <Link
                 href={`/dashboard/scenes/${scene.id}`}
-                className="flex items-center justify-between py-3 hover:opacity-70"
+                className="flex min-w-0 flex-1 items-center justify-between gap-3 hover:opacity-70"
               >
                 <span className="min-w-0 truncate">
                   <span className="font-medium">{scene.title}</span>
@@ -72,6 +90,13 @@ export default async function DashboardPage() {
                   {STATUS_LABEL[scene.status] ?? scene.status}
                 </span>
               </Link>
+              {scene.status === "READY" ? (
+                <CopyShareLink
+                  sceneId={scene.id}
+                  initialUrl={shareUrlFor(scene.shareLinks)}
+                  compact
+                />
+              ) : null}
             </li>
           ))}
         </ul>

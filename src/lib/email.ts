@@ -1,15 +1,11 @@
-import "server-only";
+// No "server-only" marker: also imported by the standalone generation worker
+// (a plain Node process, not a Next.js build). Never reachable from client code.
 import { env } from "@/lib/env";
 
-export async function sendMagicLink(to: string, url: string): Promise<void> {
-  const subject = "Your 3DAI sign-in link";
-  const text =
-    `Sign in to 3DAI:\n\n${url}\n\n` +
-    `This link expires in 15 minutes. If you didn't request it, you can ignore this email.`;
-
+async function sendEmail(to: string, subject: string, text: string): Promise<void> {
   if (env.EMAIL_TRANSPORT === "console") {
     console.log(
-      `\n──────── magic link ────────\n  to:   ${to}\n  link: ${url}\n────────────────────────────\n`,
+      `\n──────── email ────────\n  to:      ${to}\n  subject: ${subject}\n\n${text}\n────────────────────────\n`,
     );
     return;
   }
@@ -41,4 +37,29 @@ export async function sendMagicLink(to: string, url: string): Promise<void> {
   });
 
   await transport.sendMail({ from: env.EMAIL_FROM, to, subject, text });
+}
+
+export async function sendMagicLink(to: string, url: string): Promise<void> {
+  await sendEmail(
+    to,
+    "Your 3DAI sign-in link",
+    `Sign in to 3DAI:\n\n${url}\n\n` +
+      `This link expires in 15 minutes. If you didn't request it, you can ignore this email.`,
+  );
+}
+
+export async function sendSceneReady(to: string, title: string, url: string): Promise<void> {
+  await sendEmail(
+    to,
+    `Your 3D model is ready — ${title}`,
+    `"${title}" has finished processing.\n\nView it here:\n${url}`,
+  );
+}
+
+export async function sendSceneFailed(to: string, title: string, url: string): Promise<void> {
+  await sendEmail(
+    to,
+    `3D generation failed — ${title}`,
+    `"${title}" failed to process after several attempts.\n\nYou can retry it here:\n${url}`,
+  );
 }

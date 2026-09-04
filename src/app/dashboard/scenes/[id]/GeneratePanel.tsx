@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { GenerationState } from "@/lib/jobs";
+import CopyShareLink from "@/components/CopyShareLink";
 
 const POLL_MS = 2000;
 const ACTIVE = new Set(["QUEUED", "PROCESSING"]);
@@ -17,10 +18,13 @@ export default function GeneratePanel({
   sceneId,
   initialState,
   assetCount,
+  shareUrl,
 }: {
   sceneId: string;
   initialState: GenerationState;
   assetCount: number;
+  /** Existing share link, if the scene already has one. */
+  shareUrl: string | null;
 }) {
   const router = useRouter();
   const [state, setState] = useState<GenerationState>(initialState);
@@ -146,9 +150,12 @@ export default function GeneratePanel({
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-xs text-neutral-400">
-          The in-app viewer lands in milestone 4.
-        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <CopyShareLink sceneId={sceneId} initialUrl={shareUrl} />
+          <span className="text-xs text-neutral-400">
+            Send this to a buyer — they can look around it without an account.
+          </span>
+        </div>
       </Wrap>
     );
   }

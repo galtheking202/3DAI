@@ -106,6 +106,7 @@ export default async function ScenePage({
       />
 
       <SharePanel
+        key={share?.slug ?? "none"}
         sceneId={scene.id}
         initialShare={share}
         ready={scene.status === "READY" && viewable.length > 0}
@@ -115,6 +116,7 @@ export default async function ScenePage({
         sceneId={scene.id}
         initialState={genState}
         assetCount={assets.length}
+        shareUrl={share?.url ?? null}
       />
     </main>
   );

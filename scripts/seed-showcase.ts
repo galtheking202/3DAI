@@ -4,23 +4,28 @@
  * the worker uses, and writes the Scene / Asset / Job / SceneOutput rows a real
  * generation run would have produced.
  *
- *   npm run seed
+ *   npm run seed                          # local: upload + rows in one pass
+ *   npm run seed -- --upload-only <file>  # upload to storage, emit a manifest
+ *   npm run seed -- --db-only <file>      # write rows from a manifest
+ *
+ * The split exists because Railway's Postgres is only reachable from inside the
+ * private network, while R2 is reachable from anywhere: the upload phase can run
+ * against production storage locally, and the row-writing phase run wherever the
+ * database happens to be reachable. Scene ids are minted up front so both phases
+ * agree on the storage keys.
  *
  * Re-running replaces the seeded scenes (matched by title) and their storage
  * objects; scenes you made by hand are left alone.
  *
  * Model licences are recorded per entry below — all CC0 except the sofa
  * (CC BY 4.0, Wayfair) and the butterfly splat (Spark sample asset). Nothing
- * here is redistributed by the app; it is local development data.
+ * here is redistributed by the app; it is development seed data.
  */
+import { randomBytes } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { db } from "@/lib/db";
-import {
-  assetKey,
-  deleteObject,
-  outputKey,
-  putObject,
-} from "@/lib/storage";
+import { deleteObject, putObject } from "@/lib/storage";
 import { OUTPUT_EXT, OUTPUT_MIME } from "@/lib/outputs";
 import type { OutputFormat, SceneKind } from "@prisma/client";
 
@@ -90,7 +95,33 @@ const SEEDS: Seed[] = [
   },
 ];
 
+/** What the upload phase records for the row-writing phase. */
+type Manifest = {
+  createdAt: string;
+  bucket: string;
+  scenes: {
+    sceneId: string;
+    title: string;
+    description: string;
+    kind: SceneKind;
+    format: OutputFormat;
+    credit: string;
+    source: string;
+    outputKey: string;
+    outputBytes: number;
+    assets: { key: string; mimeType: string; sizeBytes: number }[];
+  }[];
+};
+
 /* ------------------------------------------------------------------ */
+
+/**
+ * A cuid-shaped id. Prisma normally mints these via @default(cuid()), but the
+ * upload phase needs the id before any row exists so storage keys can be built.
+ */
+function sceneId(): string {
+  return `c${Date.now().toString(36)}${randomBytes(9).toString("hex")}`;
+}
 
 /** CRC-32, needed to emit valid PNG chunks. */
 const CRC_TABLE = (() => {
@@ -160,16 +191,61 @@ function mb(bytes: number): string {
 
 /* ------------------------------------------------------------------ */
 
-async function main() {
+/** Download every model and push it, plus its stand-in photos, to storage. */
+async function uploadPhase(): Promise<Manifest> {
+  const manifest: Manifest = {
+    createdAt: new Date().toISOString(),
+    bucket: process.env.S3_BUCKET ?? "",
+    scenes: [],
+  };
+
+  for (const [index, seed] of SEEDS.entries()) {
+    const id = sceneId();
+
+    const assets: Manifest["scenes"][number]["assets"] = [];
+    for (let i = 0; i < seed.photos; i++) {
+      const png = makePhoto(480, 360, index + i * 0.35);
+      const key = `scenes/${id}/assets/${randomBytes(16).toString("hex")}.png`;
+      await putObject(key, png, "image/png");
+      assets.push({ key, mimeType: "image/png", sizeBytes: png.length });
+    }
+
+    const model = await download(seed.url);
+    const key = `scenes/${id}/outputs/${randomBytes(16).toString("hex")}.${OUTPUT_EXT[seed.format]}`;
+    await putObject(key, model, OUTPUT_MIME[seed.format]);
+
+    manifest.scenes.push({
+      sceneId: id,
+      title: seed.title,
+      description: seed.description,
+      kind: seed.kind,
+      format: seed.format,
+      credit: seed.credit,
+      source: seed.url,
+      outputKey: key,
+      outputBytes: model.length,
+      assets,
+    });
+
+    console.log(
+      `  ↑ ${seed.title} — ${seed.format} ${mb(model.length)} + ${seed.photos} photos → ${key}`,
+    );
+  }
+
+  return manifest;
+}
+
+/** Write the Scene / Asset / Job / SceneOutput rows described by a manifest. */
+async function dbPhase(manifest: Manifest): Promise<void> {
   const user = await db.user.findFirst({ orderBy: { createdAt: "asc" } });
   if (!user) {
     throw new Error(
-      "No user in the database — sign in once at /login, then re-run the seed.",
+      "No user in this database — sign in once through the app, then re-run.",
     );
   }
-  console.log(`seeding as ${user.email}`);
+  console.log(`writing rows as ${user.email}`);
 
-  const titles = SEEDS.map((s) => s.title);
+  const titles = manifest.scenes.map((s) => s.title);
   const stale = await db.scene.findMany({
     where: { ownerId: user.id, title: { in: titles } },
     include: { assets: true, outputs: true },
@@ -184,82 +260,88 @@ async function main() {
     await db.scene.deleteMany({ where: { id: { in: stale.map((s) => s.id) } } });
   }
 
-  for (const [index, seed] of SEEDS.entries()) {
-    const scene = await db.scene.create({
+  for (const entry of manifest.scenes) {
+    await db.scene.create({
       data: {
+        id: entry.sceneId,
         ownerId: user.id,
-        title: seed.title,
-        description: seed.description,
-        kind: seed.kind,
-        status: "PROCESSING", // flipped to READY once the outputs land
-      },
-    });
-
-    // Stand-in source photos, as if the owner had uploaded a capture.
-    for (let i = 0; i < seed.photos; i++) {
-      const png = makePhoto(480, 360, index + i * 0.35);
-      const key = assetKey(scene.id, `capture-${String(i + 1).padStart(2, "0")}.png`);
-      await putObject(key, png, "image/png");
-      await db.asset.create({
-        data: {
-          sceneId: scene.id,
-          type: "IMAGE",
-          storageKey: key,
-          mimeType: "image/png",
-          sizeBytes: BigInt(png.length),
-          position: i,
+        title: entry.title,
+        description: entry.description,
+        kind: entry.kind,
+        status: "READY",
+        assets: {
+          create: entry.assets.map((a, i) => ({
+            type: "IMAGE" as const,
+            storageKey: a.key,
+            mimeType: a.mimeType,
+            sizeBytes: BigInt(a.sizeBytes),
+            position: i,
+          })),
         },
-      });
-    }
-
-    const model = await download(seed.url);
-    const key = outputKey(scene.id, OUTPUT_EXT[seed.format]);
-    await putObject(key, model, OUTPUT_MIME[seed.format]);
-
-    const startedAt = new Date(Date.now() - 1000 * 60 * 9);
-    const finishedAt = new Date(Date.now() - 1000 * 60 * 8);
-
-    await db.$transaction([
-      db.job.create({
-        data: {
-          sceneId: scene.id,
-          type: "GENERATE_3D",
-          status: "SUCCEEDED",
-          attempts: 1,
-          startedAt,
-          finishedAt,
-        },
-      }),
-      db.sceneOutput.create({
-        data: {
-          sceneId: scene.id,
-          format: seed.format,
-          storageKey: key,
-          meta: {
-            generator: "seed",
-            kind: seed.kind,
-            sourceAssetCount: seed.photos,
-            bytes: model.length,
-            credit: seed.credit,
-            source: seed.url,
+        jobs: {
+          create: {
+            type: "GENERATE_3D" as const,
+            status: "SUCCEEDED" as const,
+            attempts: 1,
+            startedAt: new Date(Date.now() - 1000 * 60 * 9),
+            finishedAt: new Date(Date.now() - 1000 * 60 * 8),
           },
         },
-      }),
-      db.scene.update({ where: { id: scene.id }, data: { status: "READY" } }),
-    ]);
-
-    console.log(
-      `  ✓ ${seed.title} — ${seed.format} ${mb(model.length)}, ${seed.photos} photos`,
-    );
+        outputs: {
+          create: {
+            format: entry.format,
+            storageKey: entry.outputKey,
+            meta: {
+              generator: "seed",
+              kind: entry.kind,
+              sourceAssetCount: entry.assets.length,
+              bytes: entry.outputBytes,
+              credit: entry.credit,
+              source: entry.source,
+            },
+          },
+        },
+      },
+    });
+    console.log(`  ✓ ${entry.title}`);
   }
-
-  const total = await db.scene.count({ where: { ownerId: user.id } });
-  console.log(`done — ${SEEDS.length} scenes seeded, ${total} total for this user`);
-  await db.$disconnect();
 }
 
-main().catch(async (err) => {
-  console.error("seed failed:", err instanceof Error ? err.message : err);
-  await db.$disconnect();
-  process.exit(1);
-});
+/* ------------------------------------------------------------------ */
+
+async function main() {
+  const argv = process.argv.slice(2);
+  const uploadOnly = argv.indexOf("--upload-only");
+  const dbOnly = argv.indexOf("--db-only");
+
+  if (uploadOnly !== -1) {
+    const out = argv[uploadOnly + 1];
+    if (!out) throw new Error("--upload-only needs a manifest path");
+    console.log(`uploading to bucket ${process.env.S3_BUCKET} @ ${process.env.S3_ENDPOINT}`);
+    const manifest = await uploadPhase();
+    writeFileSync(out, JSON.stringify(manifest, null, 2));
+    console.log(`done — ${manifest.scenes.length} scenes uploaded, manifest at ${out}`);
+    return;
+  }
+
+  if (dbOnly !== -1) {
+    const file = argv[dbOnly + 1];
+    if (!file) throw new Error("--db-only needs a manifest path");
+    const manifest = JSON.parse(readFileSync(file, "utf8")) as Manifest;
+    await dbPhase(manifest);
+    console.log(`done — ${manifest.scenes.length} scenes written`);
+    return;
+  }
+
+  const manifest = await uploadPhase();
+  await dbPhase(manifest);
+  console.log(`done — ${manifest.scenes.length} scenes seeded`);
+}
+
+main()
+  .then(() => db.$disconnect())
+  .catch(async (err) => {
+    console.error("seed failed:", err instanceof Error ? err.message : err);
+    await db.$disconnect();
+    process.exit(1);
+  });

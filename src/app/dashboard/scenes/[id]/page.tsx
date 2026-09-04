@@ -3,8 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getOwnedScene, serializeAsset } from "@/lib/scenes";
 import { generationState } from "@/lib/jobs";
+import { presignDownload } from "@/lib/storage";
+import type { ViewableOutput } from "@/lib/outputs";
 import AssetUploader from "./AssetUploader";
 import GeneratePanel from "./GeneratePanel";
+import SceneViewer from "./SceneViewer";
 
 const KIND_LABEL: Record<string, string> = {
   OBJECT: "Object",
@@ -39,6 +42,25 @@ export default async function ScenePage({
   const genState = (await generationState(scene.id))!;
   const editable = scene.status === "DRAFT";
 
+  // Presign the outputs here rather than having the viewer round-trip for URLs:
+  // the page is already per-request and owner-scoped, so the client can start
+  // fetching geometry on first paint. URLs are short-lived (see storage.ts).
+  const outputRows = await db.sceneOutput.findMany({
+    where: { sceneId: scene.id },
+    orderBy: { createdAt: "asc" },
+  });
+  const viewable: ViewableOutput[] = await Promise.all(
+    outputRows.map(async (o) => ({
+      id: o.id,
+      format: o.format,
+      url: await presignDownload(o.storageKey),
+      sizeBytes:
+        o.meta && typeof o.meta === "object" && "bytes" in o.meta
+          ? Number((o.meta as { bytes: unknown }).bytes) || null
+          : null,
+    })),
+  );
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       <Link
@@ -66,6 +88,10 @@ export default async function ScenePage({
         <p className="mt-4 whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-400">
           {scene.description}
         </p>
+      ) : null}
+
+      {viewable.length > 0 ? (
+        <SceneViewer sceneId={scene.id} outputs={viewable} />
       ) : null}
 
       <AssetUploader

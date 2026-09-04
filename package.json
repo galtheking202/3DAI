@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "worker": "node --env-file-if-exists=.env --import tsx src/worker/index.ts",
+    "seed": "node --env-file-if-exists=.env --import tsx scripts/seed-showcase.ts",
     "worker:dev": "node --env-file-if-exists=.env --import tsx --watch src/worker/index.ts",
     "build": "prisma generate && next build",
     "postbuild": "node scripts/postbuild.mjs",
@@ -22,12 +23,15 @@
     "@aws-sdk/client-s3": "^3.1125.0",
     "@aws-sdk/s3-request-presigner": "^3.1125.0",
     "@prisma/client": "^6.13.0",
+    "@sparkjsdev/spark": "^2.1.0",
     "next": "^15.5.0",
     "nodemailer": "^9.1.1",
     "prisma": "^6.13.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "resend": "^6.26.0",
     "server-only": "^0.0.1",
+    "three": "^0.185.1",
     "tsx": "4.23.13",
     "zod": "^4.0.5"
   },
@@ -37,6 +41,7 @@
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "@types/three": "^0.185.4",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.7.0"
   }

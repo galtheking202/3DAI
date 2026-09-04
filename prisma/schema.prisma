@@ -107,6 +107,8 @@ model Asset {
 enum OutputFormat {
   GLB
   SPLAT
+  SPZ
+  SOG
 }
 
 model SceneOutput {

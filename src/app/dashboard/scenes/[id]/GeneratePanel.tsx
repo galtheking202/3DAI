@@ -101,7 +101,7 @@ export default function GeneratePanel({
         <p className="mt-2 text-xs text-neutral-400">
           {assetCount === 0
             ? "Add at least one file to enable generation."
-            : "Runs on the mock engine until World Labs Atlas is available."}
+            : "Runs on the mock engine — it returns a sample model rather than reconstructing your upload."}
         </p>
         {error ? <Err>{error}</Err> : null}
       </Wrap>

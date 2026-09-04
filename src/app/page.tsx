@@ -37,8 +37,8 @@ export default async function HomePage() {
       </div>
 
       <p className="mt-10 text-xs text-neutral-400">
-        Milestone 1 — accounts &amp; schema. 3D generation runs on a mock engine
-        until World Labs Atlas is available.
+        Early preview — capture, viewer and share links are working. 3D
+        generation still runs on a mock engine.
       </p>
     </main>
   );

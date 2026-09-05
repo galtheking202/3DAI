@@ -5,59 +5,78 @@ import type {
   Generator3D,
   GeneratorContext,
   GeneratorInput,
-  GeneratorOutput,
+  PollResult,
+  ProviderRef,
 } from "./types";
 
-/** Resolve after `ms`, or reject early if the signal aborts. */
-function delay(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) return reject(new Error("aborted"));
-    const t = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    const onAbort = () => {
-      clearTimeout(t);
-      reject(new Error("aborted"));
-    };
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
+type MockHandle = {
+  sceneId: string;
+  kind: string;
+  assetCount: number;
+  startedAt: number;
+  finishAt: number;
+};
+
+function encode(handle: MockHandle): ProviderRef {
+  return Buffer.from(JSON.stringify(handle)).toString("base64url");
+}
+
+function decode(ref: ProviderRef): MockHandle {
+  return JSON.parse(Buffer.from(ref, "base64url").toString("utf8")) as MockHandle;
 }
 
 /**
- * Stand-in engine: waits a realistic beat, then "produces" a bundled sample GLB
- * by uploading it under the scene's outputs prefix. Swapping in Atlas means
- * replacing this class, nothing else.
+ * Stand-in engine: encodes a random-length "run" into the handle itself
+ * (start/finish timestamps) instead of keeping in-memory state, so it behaves
+ * like a real hosted API from the worker's point of view — poll() is stateless
+ * and safe to call from any process, including after a worker restart.
  */
 export class MockGenerator implements Generator3D {
   readonly name = "mock";
 
-  async generate(
-    input: GeneratorInput,
-    ctx: GeneratorContext,
-  ): Promise<GeneratorOutput[]> {
+  async submit(input: GeneratorInput, ctx: GeneratorContext): Promise<ProviderRef> {
     const spread = Math.max(0, env.MOCK_GENERATOR_MAX_MS - env.MOCK_GENERATOR_MIN_MS);
     const ms = env.MOCK_GENERATOR_MIN_MS + Math.floor(Math.random() * (spread + 1));
     ctx.log(`mock: simulating generation for ~${ms}ms from ${input.assets.length} asset(s)`);
-    await delay(ms, ctx.signal);
+    const now = Date.now();
+    return encode({
+      sceneId: input.sceneId,
+      kind: input.kind,
+      assetCount: input.assets.length,
+      startedAt: now,
+      finishAt: now + ms,
+    });
+  }
+
+  async poll(ref: ProviderRef, ctx: GeneratorContext): Promise<PollResult> {
+    const handle = decode(ref);
+    const now = Date.now();
+    if (now < handle.finishAt) {
+      const total = handle.finishAt - handle.startedAt;
+      const progress =
+        total <= 0 ? 0 : Math.min(99, Math.floor(((now - handle.startedAt) / total) * 100));
+      return { status: "running", progress };
+    }
 
     const glb = sampleGlb();
-    const key = outputKey(input.sceneId, "glb");
+    const key = outputKey(handle.sceneId, "glb");
     await putObject(key, glb, "model/gltf-binary");
     ctx.log(`mock: wrote ${glb.length} bytes to ${key}`);
 
-    return [
-      {
-        format: "GLB",
-        storageKey: key,
-        meta: {
-          generator: "mock",
-          kind: input.kind,
-          sourceAssetCount: input.assets.length,
-          bytes: glb.length,
-          simulatedMs: ms,
+    return {
+      status: "succeeded",
+      outputs: [
+        {
+          format: "GLB",
+          storageKey: key,
+          meta: {
+            generator: "mock",
+            kind: handle.kind,
+            sourceAssetCount: handle.assetCount,
+            bytes: glb.length,
+          },
         },
-      },
-    ];
+      ],
+    };
   }
 }

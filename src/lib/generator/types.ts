@@ -29,15 +29,24 @@ export type GeneratorContext = {
   log: (message: string) => void;
 };
 
+/** Opaque handle a hosted engine returns from submit(), used to poll it later. */
+export type ProviderRef = string;
+
+export type PollResult =
+  | { status: "running"; progress?: number }
+  | { status: "succeeded"; outputs: GeneratorOutput[] }
+  | { status: "failed"; error: string };
+
 /**
  * The single seam between the app and whatever actually builds the 3D scene.
- * `MockGenerator` today, `AtlasGenerator` once World Labs Atlas is available —
- * nothing else in the pipeline changes when that swap happens.
+ * Hosted engines are submit-then-poll over minutes, so the worker never blocks
+ * on one call: `submit()` kicks a run off and returns a handle, `poll()` is
+ * called again later (possibly by a different worker process/replica) to check
+ * on it. `MockGenerator` simulates this by encoding a deadline into the handle
+ * itself, so it needs no in-memory state and survives a worker restart.
  */
 export interface Generator3D {
   readonly name: string;
-  generate(
-    input: GeneratorInput,
-    ctx: GeneratorContext,
-  ): Promise<GeneratorOutput[]>;
+  submit(input: GeneratorInput, ctx: GeneratorContext): Promise<ProviderRef>;
+  poll(ref: ProviderRef, ctx: GeneratorContext): Promise<PollResult>;
 }

@@ -57,27 +57,83 @@ export async function enqueueGeneration(
 export type ClaimedJob = { id: string; sceneId: string; attempts: number };
 
 /**
- * Atomically take the oldest PENDING job and mark it RUNNING. `FOR UPDATE SKIP
- * LOCKED` lets multiple workers pull from the queue without stepping on each
- * other. Returns null when the queue is empty.
+ * Atomically take up to `limit` oldest PENDING jobs and mark them RUNNING.
+ * `FOR UPDATE SKIP LOCKED` lets multiple workers (and concurrent claims within
+ * one worker) pull from the queue without stepping on each other. Returns an
+ * empty array when the queue is empty.
  */
-export async function claimNextJob(): Promise<ClaimedJob | null> {
-  const rows = await db.$queryRaw<ClaimedJob[]>`
+export async function claimNextJobs(limit: number): Promise<ClaimedJob[]> {
+  return db.$queryRaw<ClaimedJob[]>`
     UPDATE "Job" AS j
     SET status = 'RUNNING',
         attempts = j.attempts + 1,
         "startedAt" = now(),
         "updatedAt" = now()
-    WHERE j.id = (
+    WHERE j.id IN (
       SELECT id FROM "Job"
       WHERE status = 'PENDING' AND type = 'GENERATE_3D'
       ORDER BY "createdAt" ASC
       FOR UPDATE SKIP LOCKED
-      LIMIT 1
+      LIMIT ${limit}
     )
     RETURNING j.id, j."sceneId", j.attempts;
   `;
-  return rows[0] ?? null;
+}
+
+export type PollableJob = {
+  id: string;
+  sceneId: string;
+  attempts: number;
+  providerRef: string;
+};
+
+/**
+ * Atomically take up to `limit` RUNNING jobs due for another poll, bumping
+ * each one's `nextPollAt` forward as a lease. The lease is what makes this
+ * safe across worker replicas without an explicit "locked by" column: whoever
+ * claims a job owns it until the lease elapses, and if that worker crashes
+ * mid-poll, the job simply becomes claimable again once the lease expires —
+ * no separate stale-job sweep needed for the polling phase.
+ */
+export async function claimJobsToPoll(limit: number): Promise<PollableJob[]> {
+  const leaseSeconds = env.GENERATION_POLL_INTERVAL_MS / 1000;
+  return db.$queryRaw<PollableJob[]>`
+    UPDATE "Job" AS j
+    SET "nextPollAt" = now() + make_interval(secs => ${leaseSeconds}),
+        "updatedAt" = now()
+    WHERE j.id IN (
+      SELECT id FROM "Job"
+      WHERE status = 'RUNNING'
+        AND "providerRef" IS NOT NULL
+        AND ("nextPollAt" IS NULL OR "nextPollAt" <= now())
+      ORDER BY "nextPollAt" ASC NULLS FIRST
+      FOR UPDATE SKIP LOCKED
+      LIMIT ${limit}
+    )
+    RETURNING j.id, j."sceneId", j.attempts, j."providerRef";
+  `;
+}
+
+/** Record the handle returned by Generator3D.submit() and set its first poll lease. */
+export async function recordSubmission(jobId: string, providerRef: string): Promise<void> {
+  await db.job.update({
+    where: { id: jobId },
+    data: {
+      providerRef,
+      progress: 0,
+      nextPollAt: new Date(Date.now() + env.GENERATION_POLL_INTERVAL_MS),
+    },
+  });
+}
+
+/** Record a progress update from a "running" poll result. */
+export async function updateJobProgress(jobId: string, progress: number): Promise<void> {
+  await db.job.update({ where: { id: jobId }, data: { progress } });
+}
+
+/** Jobs already submitted to the generator and not yet finished, across all workers. */
+export async function countInFlightJobs(): Promise<number> {
+  return db.job.count({ where: { status: "RUNNING", providerRef: { not: null } } });
 }
 
 /** Move a claimed job's scene from QUEUED to PROCESSING (no-op if it moved on). */
@@ -132,7 +188,14 @@ export async function failJob(
     await db.$transaction([
       db.job.update({
         where: { id: jobId },
-        data: { status: "PENDING", error: err, startedAt: null },
+        data: {
+          status: "PENDING",
+          error: err,
+          startedAt: null,
+          providerRef: null,
+          progress: null,
+          nextPollAt: null,
+        },
       }),
       db.scene.updateMany({
         where: { id: sceneId, status: { in: ["QUEUED", "PROCESSING"] } },
@@ -161,6 +224,7 @@ export type GenerationState = {
         status: string;
         attempts: number;
         error: string | null;
+        progress: number | null;
         startedAt: string | null;
         finishedAt: string | null;
       }
@@ -189,6 +253,7 @@ export async function generationState(
           status: job.status,
           attempts: job.attempts,
           error: job.error,
+          progress: job.progress,
           startedAt: job.startedAt?.toISOString() ?? null,
           finishedAt: job.finishedAt?.toISOString() ?? null,
         }

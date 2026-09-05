@@ -161,6 +161,16 @@ model Job {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
+  /// Handle returned by Generator3D.submit(), used to poll a hosted engine.
+  /// Set once the job is submitted; cleared when it's requeued for a retry.
+  providerRef String?
+  /// 0-100, as reported by the most recent poll(). Null until the engine reports one.
+  progress    Int?
+  /// Earliest time this job is eligible to be polled again; doubles as a lease
+  /// so only one worker replica polls a given job at a time.
+  nextPollAt  DateTime?
+
   @@index([sceneId])
   @@index([status])
+  @@index([status, nextPollAt])
 }

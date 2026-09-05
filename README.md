@@ -75,9 +75,13 @@ so you can run several), runs the configured `Generator3D` — `MockGenerator`
 uploads a bundled sample GLB after a short delay — writes `SceneOutput` rows and
 sets the scene `READY`. Failures retry up to `WORKER_MAX_ATTEMPTS`, then land in
 `FAILED` with a "Try again" button. The scene page polls while a run is live.
-`GENERATOR` selects the engine. Be aware that swapping in a real one is *not*
-a drop-in: `Generator3D.generate()` is a single blocking call, and real engines
-are submit-then-poll over minutes. See [Known gaps](#known-gaps).
+`GENERATOR` selects the engine. `Generator3D` is submit-then-poll: `submit()`
+hands a run to the engine and returns a `providerRef` handle, `poll()` is
+called again later — possibly by a different worker replica — until it reports
+`succeeded`/`failed`. `Job.providerRef`/`progress`/`nextPollAt` track this;
+`nextPollAt` doubles as a lease so `WORKER_CONCURRENCY` replicas can share a
+queue of in-flight jobs without polling the same one twice. See
+[Known gaps](#known-gaps) for what this doesn't cover yet.
 
 Processing runs entirely on the `worker` process, independent of any browser
 tab — closing the tab mid-run doesn't stop or lose the job. To let a user know
@@ -300,11 +304,11 @@ Carried into milestone 6:
   (Apache-2.0) for quality, [AnySplat](https://github.com/InternRobotics/AnySplat)
   (MIT) for a seconds-fast preview. **Check licences first**: the original Inria
   3DGS code is non-commercial, and many derivative repos inherit that.
-- **`Generator3D` is a single blocking call.** Real engines are submit-then-poll
-  over minutes. The interface needs `submit()` → handle and `poll(handle)`, plus
-  `providerRef`/`progress` on `Job`, or a deploy mid-run loses paid compute.
-- **No stale-job reaper.** A worker crash leaves a job `RUNNING` and the scene
-  stuck `PROCESSING` forever.
+- **No stale-job reaper for the submission window.** A worker crash mid-poll
+  self-heals once the job's `nextPollAt` lease elapses — another replica just
+  picks it back up. A crash between `claimNextJobs()` marking a job `RUNNING`
+  and `submit()` returning a `providerRef`, though, still leaves it stuck
+  `RUNNING`/`PROCESSING` forever with no lease to expire.
 - **No share preview image.** Links unfurl with title and description but no
   thumbnail, so they look plain in WhatsApp — the place these links get pasted.
 - **Session ids are `cuid()`**, used directly as the cookie value. That's a

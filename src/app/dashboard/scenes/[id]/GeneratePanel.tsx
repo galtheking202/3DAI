@@ -110,13 +110,16 @@ export default function GeneratePanel({
 
   if (state.status === "QUEUED" || state.status === "PROCESSING") {
     const attempt = state.job?.attempts ?? 1;
+    const progress = state.job?.progress ?? null;
     return (
       <Wrap>
         <p className="flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-300">
           <Spinner />
           {state.status === "QUEUED"
             ? "Queued — waiting for a worker…"
-            : "Processing…"}
+            : progress !== null
+              ? `Processing… ${progress}%`
+              : "Processing…"}
           {attempt > 1 ? (
             <span className="text-xs text-neutral-400">attempt {attempt}</span>
           ) : null}

@@ -9,6 +9,8 @@ export type {
   GeneratorContext,
   GeneratorInput,
   GeneratorOutput,
+  PollResult,
+  ProviderRef,
 } from "./types";
 
 let instance: Generator3D | null = null;

@@ -2,22 +2,25 @@ import type {
   Generator3D,
   GeneratorContext,
   GeneratorInput,
-  GeneratorOutput,
+  PollResult,
+  ProviderRef,
 } from "./types";
 
+const NOT_IMPLEMENTED =
+  "AtlasGenerator is not implemented yet — set GENERATOR=mock until a hosted engine is wired up.";
+
 /**
- * Placeholder for the World Labs Atlas engine. Kept so the wiring and env switch
- * exist now; `generate` throws until the API is available and implemented.
+ * Placeholder for a hosted 3D-generation engine. Kept so the wiring and env
+ * switch exist now; both methods throw until a real provider is implemented.
  */
 export class AtlasGenerator implements Generator3D {
   readonly name = "atlas";
 
-  async generate(
-    _input: GeneratorInput,
-    _ctx: GeneratorContext,
-  ): Promise<GeneratorOutput[]> {
-    throw new Error(
-      "AtlasGenerator is not implemented yet — set GENERATOR=mock until Atlas is available.",
-    );
+  async submit(_input: GeneratorInput, _ctx: GeneratorContext): Promise<ProviderRef> {
+    throw new Error(NOT_IMPLEMENTED);
+  }
+
+  async poll(_ref: ProviderRef, _ctx: GeneratorContext): Promise<PollResult> {
+    throw new Error(NOT_IMPLEMENTED);
   }
 }

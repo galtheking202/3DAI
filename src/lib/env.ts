@@ -30,6 +30,16 @@ const schema = z.object({
   // Generation pipeline / worker.
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
   WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
+  // Max jobs submitted to the hosted engine and not yet finished, across all
+  // worker replicas at once (a soft cap: concurrent replicas can briefly
+  // overshoot it). Size it to the engine's own concurrency/rate limits, not
+  // this app's capacity.
+  WORKER_CONCURRENCY: z.coerce.number().int().positive().default(5),
+  // How often an in-flight job is polled. Also doubles as that job's lease:
+  // another worker replica won't pick it up again until this elapses, so a
+  // crash mid-poll just means the next poll happens late, not that the job
+  // (and its paid compute) is lost.
+  GENERATION_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
   MOCK_GENERATOR_MIN_MS: z.coerce.number().int().nonnegative().default(2500),
   MOCK_GENERATOR_MAX_MS: z.coerce.number().int().nonnegative().default(6000),
 });

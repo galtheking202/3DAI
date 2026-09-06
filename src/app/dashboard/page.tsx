@@ -3,7 +3,10 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { presignDownload } from "@/lib/storage";
+import type { ViewableOutput } from "@/lib/outputs";
 import CopyShareLink from "@/components/CopyShareLink";
+import ModelThumbnail from "@/components/viewer/ModelThumbnail";
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft",
@@ -28,6 +31,9 @@ export default async function DashboardPage() {
         orderBy: { createdAt: "desc" },
         take: 1,
       },
+      // Just enough to render a card thumbnail — the scene page presigns the
+      // rest when you open it.
+      outputs: { orderBy: { createdAt: "asc" }, take: 1 },
     },
   });
 
@@ -38,6 +44,24 @@ export default async function DashboardPage() {
     if (link.expiresAt && link.expiresAt < new Date()) return null;
     return `${appUrl}/s/${link.slug}`;
   };
+
+  // One presigned URL per ready scene, for its card's live thumbnail.
+  const thumbnails = new Map<string, ViewableOutput>();
+  await Promise.all(
+    scenes.map(async (scene) => {
+      const output = scene.outputs[0];
+      if (scene.status !== "READY" || !output) return;
+      thumbnails.set(scene.id, {
+        id: output.id,
+        format: output.format,
+        url: await presignDownload(output.storageKey),
+        sizeBytes:
+          output.meta && typeof output.meta === "object" && "bytes" in output.meta
+            ? Number((output.meta as { bytes: unknown }).bytes) || null
+            : null,
+      });
+    }),
+  );
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -72,33 +96,52 @@ export default async function DashboardPage() {
           No scenes yet. Create one to upload a video and photos.
         </p>
       ) : (
-        <ul className="mt-8 divide-y divide-neutral-200 dark:divide-neutral-800">
-          {scenes.map((scene) => (
-            <li key={scene.id} className="flex items-center gap-3 py-3">
-              <Link
-                href={`/dashboard/scenes/${scene.id}`}
-                className="flex min-w-0 flex-1 items-center justify-between gap-3 hover:opacity-70"
+        <ul className="mt-8 grid grid-cols-2 gap-4">
+          {scenes.map((scene) => {
+            const thumbnail = thumbnails.get(scene.id);
+            return (
+              <li
+                key={scene.id}
+                className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800"
               >
-                <span className="min-w-0 truncate">
-                  <span className="font-medium">{scene.title}</span>
-                  <span className="ml-2 text-xs text-neutral-500">
-                    {scene._count.assets}{" "}
-                    {scene._count.assets === 1 ? "file" : "files"}
-                  </span>
-                </span>
-                <span className="shrink-0 text-xs uppercase tracking-wide text-neutral-500">
-                  {STATUS_LABEL[scene.status] ?? scene.status}
-                </span>
-              </Link>
-              {scene.status === "READY" ? (
-                <CopyShareLink
-                  sceneId={scene.id}
-                  initialUrl={shareUrlFor(scene.shareLinks)}
-                  compact
-                />
-              ) : null}
-            </li>
-          ))}
+                <Link
+                  href={`/dashboard/scenes/${scene.id}`}
+                  className="block hover:opacity-90"
+                >
+                  <div className="aspect-square bg-neutral-100 dark:bg-neutral-900">
+                    {thumbnail ? (
+                      <ModelThumbnail output={thumbnail} />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-xs uppercase tracking-wide text-neutral-400">
+                        {STATUS_LABEL[scene.status] ?? scene.status}
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <p className="truncate text-sm font-medium">{scene.title}</p>
+                    <p className="mt-1 flex items-center justify-between text-xs text-neutral-500">
+                      <span>
+                        {scene._count.assets}{" "}
+                        {scene._count.assets === 1 ? "file" : "files"}
+                      </span>
+                      <span className="uppercase tracking-wide">
+                        {STATUS_LABEL[scene.status] ?? scene.status}
+                      </span>
+                    </p>
+                  </div>
+                </Link>
+                {scene.status === "READY" ? (
+                  <div className="px-3 pb-3">
+                    <CopyShareLink
+                      sceneId={scene.id}
+                      initialUrl={shareUrlFor(scene.shareLinks)}
+                      compact
+                    />
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
     </main>

@@ -17,6 +17,7 @@ export default function SplatCanvas({
   onReady,
   onError,
   resetSignal,
+  interactive = true,
 }: {
   url: string;
   /** Spark's own format tag ("spz", "splat", "pcsogszip"). */
@@ -26,6 +27,8 @@ export default function SplatCanvas({
   onReady: () => void;
   onError: (message: string) => void;
   resetSignal: number;
+  /** Off for passive thumbnails — no orbit/pan/zoom, no page-scroll capture. */
+  interactive?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Stage | null>(null);
@@ -35,7 +38,11 @@ export default function SplatCanvas({
     if (!container) return;
 
     let cancelled = false;
-    const stage = createStage(container, { antialias: false, toneMapping: false });
+    const stage = createStage(container, {
+      antialias: false,
+      toneMapping: false,
+      interactive,
+    });
     stageRef.current = stage;
 
     // SparkRenderer is itself a THREE.Mesh: adding it to the scene is what

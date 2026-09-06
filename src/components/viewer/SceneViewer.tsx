@@ -40,7 +40,7 @@ export default function SceneViewer({
    * page uses this so the whole view fits one screen with nothing to scroll.
    */
   fill?: boolean;
-  /** Owner-only quick-share button next to Download. Omit for share-link visitors. */
+  /** Owner-only "copy link" control shown below the model. Omit for share-link visitors. */
   share?: { initialUrl: string | null } | null;
 }) {
   const [activeId, setActiveId] = useState(outputs[0]?.id ?? "");
@@ -104,9 +104,6 @@ export default function SceneViewer({
             >
               ⬇️
             </a>
-          ) : null}
-          {share ? (
-            <CopyShareLink sceneId={sceneId} initialUrl={share.initialUrl} iconOnly />
           ) : null}
         </div>
       </div>
@@ -189,6 +186,12 @@ export default function SceneViewer({
       <p className="mt-2 shrink-0 text-xs text-neutral-400">
         Drag to orbit · scroll or pinch to zoom · two fingers or right-drag to pan
       </p>
+
+      {share ? (
+        <div className="mt-3 shrink-0">
+          <CopyShareLink sceneId={sceneId} initialUrl={share.initialUrl} showLink />
+        </div>
+      ) : null}
     </section>
   );
 }

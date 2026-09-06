@@ -27,6 +27,13 @@ const schema = z.object({
 
   GENERATOR: z.enum(["mock", "atlas"]).default("mock"),
 
+  // Ads. A single Google AdSense banner under the model on public /s/<slug>
+  // pages. Shown only when ADS_ENABLED is true AND both IDs are set; owners
+  // never see it on their own dashboard. See src/lib/ads.ts.
+  ADS_ENABLED: z.stringbool().default(false),
+  ADS_CLIENT: z.string().optional(), // AdSense publisher ID, e.g. ca-pub-…
+  ADS_SLOT: z.string().optional(), // Ad unit ID for the share-page banner
+
   // Generation pipeline / worker.
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
   WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),

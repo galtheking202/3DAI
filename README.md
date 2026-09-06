@@ -180,6 +180,17 @@ production.
 at the same time or newly created links will point at the old hostname. Existing
 links keep working either way — only the slug is stored.
 
+`ADS_ENABLED` is the master switch for Google AdSense. With `ADS_ENABLED` +
+`ADS_CLIENT` (your `ca-pub-…` publisher ID) the `adsbygoogle.js` loader is
+rendered in the root layout `<head>` on every page — that is what Google's
+site review checks for, so the site can be verified before any ad unit
+exists. Add `ADS_SLOT` (a display ad unit ID) and a single banner appears
+under the model on public `/s/<slug>` pages — nowhere else, and never on an
+owner's own dashboard (`src/lib/ads.ts`, `src/components/AdBanner.tsx`).
+Setting the vars needs a `railway up` rebuild, not just `railway redeploy`.
+There is no consent/CMP layer yet, so check your obligations before serving
+EU traffic at scale.
+
 ## Deployment (Railway)
 
 Two services plus managed Postgres. The repo has a GitHub remote

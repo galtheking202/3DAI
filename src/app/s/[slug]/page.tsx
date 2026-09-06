@@ -4,8 +4,10 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { presignDownload, SHARE_URL_TTL_SECONDS } from "@/lib/storage";
 import { resolveShare, unlockCookieName } from "@/lib/share";
+import { bannerAd } from "@/lib/ads";
 import type { ViewableOutput } from "@/lib/outputs";
 import SceneViewer from "@/components/viewer/SceneViewer";
+import AdBanner from "@/components/AdBanner";
 import PasswordGate from "./PasswordGate";
 
 // Every load re-checks the link, so a revoked or expired one dies immediately
@@ -126,6 +128,8 @@ export default async function SharePage({
     })),
   );
 
+  const ad = bannerAd();
+
   return (
     <main className="mx-auto flex h-dvh max-w-3xl flex-col overflow-hidden px-6 py-4">
       <header className="shrink-0">
@@ -148,6 +152,17 @@ export default async function SharePage({
         allowDownload={false}
         fill
       />
+
+      {ad ? (
+        <aside className="mt-2 shrink-0 overflow-hidden">
+          <p className="text-center text-[10px] uppercase tracking-widest text-neutral-400">
+            Advertisement
+          </p>
+          <div className="mt-1 h-[90px] w-full overflow-hidden">
+            <AdBanner client={ad.client} slot={ad.slot} />
+          </div>
+        </aside>
+      ) : null}
 
       <footer className="mt-2 shrink-0 text-center text-xs text-neutral-400">
         Shared with you via{" "}

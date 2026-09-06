@@ -128,9 +128,9 @@ so sign in once first. Re-running replaces only the seeded scenes.
 The core flow: a seller captures an item, then sends a link a buyer can open
 without an account.
 
-- **One link per scene.** Create/copy it from the dashboard list, the "3D scene
-  ready" panel, or the share panel on the scene page. The first click on an
-  unshared scene mints a link (30 days, no password) and copies it.
+- **One link per scene.** Create/copy it from the dashboard list or the 🔗
+  button next to the 3D viewer's download button on the scene page. The first
+  click on an unshared scene mints a link (30 days, no password) and copies it.
 - **`/s/<slug>`** is public — no auth, no account. It re-resolves the link on
   every load, so revoke and expiry take effect immediately.
 - **Optional password** (`scrypt` from `node:crypto`). The unlock cookie is an
@@ -139,6 +139,9 @@ without an account.
 - **Optional expiry** — 7/30/90 days or never.
 - **Revoke** kills the link; the slug is never reused. Changing password or
   expiry keeps the same slug, so people you already sent it to aren't cut off.
+  Password, expiry and revoke are `POST`/`DELETE /api/scenes/[id]/share`
+  operations only for now — there's no dashboard UI for them since the share
+  panel was replaced by the one-click button above.
 - **Viewers get no download button.** The model still reaches their browser in
   order to render at all, so this removes the affordance rather than protecting
   the bytes.

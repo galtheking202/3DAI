@@ -32,6 +32,12 @@ export type StageOptions = {
    * are already display-referred, so mapping them again dulls the capture.
    */
   toneMapping?: boolean;
+  /**
+   * Orbit/pan/zoom input. Off for passive thumbnails — `touch-none` would
+   * otherwise block page scroll wherever a finger lands on the canvas, and
+   * there is nothing worth dragging in a card-sized preview anyway.
+   */
+  interactive?: boolean;
 };
 
 /**
@@ -43,10 +49,12 @@ export type StageOptions = {
  */
 export function createStage(
   container: HTMLElement,
-  { antialias = true, toneMapping = true }: StageOptions = {},
+  { antialias = true, toneMapping = true, interactive = true }: StageOptions = {},
 ): Stage {
   const canvas = document.createElement("canvas");
-  canvas.className = "block h-full w-full touch-none";
+  canvas.className = interactive
+    ? "block h-full w-full touch-none"
+    : "block h-full w-full pointer-events-none";
   container.appendChild(canvas);
 
   const renderer = new THREE.WebGLRenderer({
@@ -68,6 +76,7 @@ export function createStage(
   camera.position.set(0, 0, 3);
 
   const controls = new OrbitControls(camera, canvas);
+  controls.enabled = interactive;
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.rotateSpeed = 0.6;

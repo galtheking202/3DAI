@@ -18,6 +18,7 @@ export default function MeshCanvas({
   onReady,
   onError,
   resetSignal,
+  interactive = true,
 }: {
   url: string;
   sizeBytes: number | null;
@@ -25,6 +26,8 @@ export default function MeshCanvas({
   onReady: () => void;
   onError: (message: string) => void;
   resetSignal: number;
+  /** Off for passive thumbnails — no orbit/pan/zoom, no page-scroll capture. */
+  interactive?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Stage | null>(null);
@@ -34,7 +37,7 @@ export default function MeshCanvas({
     if (!container) return;
 
     let cancelled = false;
-    const stage = createStage(container);
+    const stage = createStage(container, { interactive });
     stageRef.current = stage;
 
     // Image-based lighting from a procedural room — no network fetch.

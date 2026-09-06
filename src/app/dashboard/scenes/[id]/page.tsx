@@ -10,7 +10,6 @@ import { env } from "@/lib/env";
 import AssetUploader from "./AssetUploader";
 import GeneratePanel from "./GeneratePanel";
 import SceneViewer from "@/components/viewer/SceneViewer";
-import SharePanel from "./SharePanel";
 
 const KIND_LABEL: Record<string, string> = {
   OBJECT: "Object",
@@ -65,6 +64,10 @@ export default async function ScenePage({
   );
 
   const share = await activeShare(scene.id, env.APP_URL);
+  // Once there's a model to look at, the viewer's own download/share buttons
+  // cover it — the files list, share panel, and generate status below are only
+  // useful while the scene is still being built.
+  const ready = scene.status === "READY" && viewable.length > 0;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
@@ -96,28 +99,29 @@ export default async function ScenePage({
       ) : null}
 
       {viewable.length > 0 ? (
-        <SceneViewer sceneId={scene.id} outputs={viewable} />
+        <SceneViewer
+          sceneId={scene.id}
+          outputs={viewable}
+          share={{ initialUrl: share?.url ?? null }}
+        />
       ) : null}
 
-      <AssetUploader
-        sceneId={scene.id}
-        initialAssets={assets.map(serializeAsset)}
-        editable={editable}
-      />
+      {!ready ? (
+        <>
+          <AssetUploader
+            sceneId={scene.id}
+            initialAssets={assets.map(serializeAsset)}
+            editable={editable}
+          />
 
-      <SharePanel
-        key={share?.slug ?? "none"}
-        sceneId={scene.id}
-        initialShare={share}
-        ready={scene.status === "READY" && viewable.length > 0}
-      />
-
-      <GeneratePanel
-        sceneId={scene.id}
-        initialState={genState}
-        assetCount={assets.length}
-        shareUrl={share?.url ?? null}
-      />
+          <GeneratePanel
+            sceneId={scene.id}
+            initialState={genState}
+            assetCount={assets.length}
+            shareUrl={share?.url ?? null}
+          />
+        </>
+      ) : null}
     </main>
   );
 }

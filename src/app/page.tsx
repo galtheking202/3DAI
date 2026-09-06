@@ -40,6 +40,12 @@ export default async function HomePage() {
         Early preview — capture, viewer and share links are working. 3D
         generation still runs on a mock engine.
       </p>
+
+      <p className="mt-4 text-xs text-neutral-400">
+        <Link href="/privacy" className="underline underline-offset-2">
+          Privacy
+        </Link>
+      </p>
     </main>
   );
 }

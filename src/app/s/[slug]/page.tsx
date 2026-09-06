@@ -169,6 +169,10 @@ export default async function SharePage({
         <a href="/" className="underline underline-offset-2">
           3DAI
         </a>
+        {" · "}
+        <a href="/privacy" className="underline underline-offset-2">
+          Privacy
+        </a>
       </footer>
     </main>
   );

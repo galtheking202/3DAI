@@ -61,6 +61,12 @@ export default async function LoginPage({
           {MESSAGES[errorKey] ?? "Something went wrong. Try again."}
         </p>
       ) : null}
+
+      <p className="mt-10 text-xs text-neutral-400">
+        <Link href="/privacy" className="underline underline-offset-2">
+          Privacy
+        </Link>
+      </p>
     </main>
   );
 }

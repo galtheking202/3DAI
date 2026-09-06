@@ -127,8 +127,8 @@ export default async function SharePage({
   );
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
-      <header>
+    <main className="mx-auto flex h-dvh max-w-3xl flex-col overflow-hidden px-6 py-4">
+      <header className="shrink-0">
         <p className="text-xs font-medium uppercase tracking-widest text-neutral-500">
           {KIND_LABEL[scene.kind] ?? "Item"}
         </p>
@@ -136,7 +136,7 @@ export default async function SharePage({
           {scene.title}
         </h1>
         {scene.description ? (
-          <p className="mt-3 whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="mt-2 line-clamp-2 whitespace-pre-wrap break-words text-sm text-neutral-600 dark:text-neutral-400">
             {scene.description}
           </p>
         ) : null}
@@ -146,14 +146,14 @@ export default async function SharePage({
         sceneId={scene.id}
         outputs={outputs}
         allowDownload={false}
+        fill
       />
 
-      <footer className="mt-10 border-t border-neutral-200 pt-4 text-xs text-neutral-400 dark:border-neutral-800">
+      <footer className="mt-2 shrink-0 text-center text-xs text-neutral-400">
         Shared with you via{" "}
         <a href="/" className="underline underline-offset-2">
           3DAI
         </a>
-        . Drag to look around the item.
       </footer>
     </main>
   );

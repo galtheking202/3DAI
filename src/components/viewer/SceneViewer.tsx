@@ -23,6 +23,7 @@ export default function SceneViewer({
   sceneId,
   outputs,
   allowDownload = true,
+  fill = false,
 }: {
   sceneId: string;
   outputs: ViewableOutput[];
@@ -32,6 +33,11 @@ export default function SceneViewer({
    * removes the obvious affordance rather than protecting the bytes.
    */
   allowDownload?: boolean;
+  /**
+   * Fill the parent flex column instead of a fixed aspect ratio — the share
+   * page uses this so the whole view fits one screen with nothing to scroll.
+   */
+  fill?: boolean;
 }) {
   const [activeId, setActiveId] = useState(outputs[0]?.id ?? "");
   const [state, setState] = useState<LoadState>({ phase: "loading", progress: 0 });
@@ -64,8 +70,14 @@ export default function SceneViewer({
   const canvasKey = active.id;
 
   return (
-    <section className="mt-10 border-t border-neutral-200 pt-6 dark:border-neutral-800">
-      <div className="flex items-baseline justify-between gap-4">
+    <section
+      className={
+        fill
+          ? "mt-4 flex min-h-0 flex-1 flex-col"
+          : "mt-10 border-t border-neutral-200 pt-6 dark:border-neutral-800"
+      }
+    >
+      <div className="flex shrink-0 items-baseline justify-between gap-4">
         <h2 className="text-sm font-medium uppercase tracking-widest text-neutral-500">
           3D view
         </h2>
@@ -91,7 +103,7 @@ export default function SceneViewer({
       </div>
 
       {outputs.length > 1 ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex shrink-0 flex-wrap gap-2">
           {outputs.map((o) => (
             <button
               key={o.id}
@@ -109,7 +121,13 @@ export default function SceneViewer({
         </div>
       ) : null}
 
-      <div className="relative mt-3 aspect-[4/3] w-full overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 sm:aspect-video dark:border-neutral-800 dark:bg-neutral-900">
+      <div
+        className={
+          fill
+            ? "relative mt-3 w-full min-h-0 flex-1 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900"
+            : "relative mt-3 aspect-[4/3] w-full overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 sm:aspect-video dark:border-neutral-800 dark:bg-neutral-900"
+        }
+      >
         {kind === "mesh" ? (
           <MeshCanvas
             key={canvasKey}
@@ -159,7 +177,7 @@ export default function SceneViewer({
         ) : null}
       </div>
 
-      <p className="mt-2 text-xs text-neutral-400">
+      <p className="mt-2 shrink-0 text-xs text-neutral-400">
         Drag to orbit · scroll or pinch to zoom · two fingers or right-drag to pan
       </p>
     </section>

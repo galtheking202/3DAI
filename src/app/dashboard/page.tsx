@@ -41,16 +41,16 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
-      <header className="flex items-center justify-between">
-        <div>
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
           <p className="text-sm font-medium uppercase tracking-widest text-neutral-500">
             3DAI
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Your scenes</h1>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-neutral-500">{user.email}</span>
-          <form method="post" action="/api/auth/logout">
+        <div className="flex min-w-0 items-center gap-3 text-sm">
+          <span className="min-w-0 truncate text-neutral-500">{user.email}</span>
+          <form method="post" action="/api/auth/logout" className="shrink-0">
             <button className="rounded-md border border-neutral-300 px-3 py-1.5 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900">
               Sign out
             </button>

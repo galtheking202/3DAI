@@ -90,7 +90,7 @@ export default async function ScenePage({
       </header>
 
       {scene.description ? (
-        <p className="mt-4 whitespace-pre-wrap text-sm text-neutral-600 dark:text-neutral-400">
+        <p className="mt-4 whitespace-pre-wrap break-words text-sm text-neutral-600 dark:text-neutral-400">
           {scene.description}
         </p>
       ) : null}

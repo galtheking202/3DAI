@@ -8,23 +8,27 @@ import type { ShareState } from "@/lib/share";
 const DEFAULT_EXPIRY_DAYS = 30;
 
 /**
- * One-click "copy the share link" for places that aren't the full share panel:
- * the dashboard list and the just-finished state on the scene page.
+ * One-click "copy the share link", used in the dashboard list and (icon-only)
+ * next to the download button on a ready scene's 3D viewer.
  *
  * If the scene has no link yet the first click creates one (30 days, no
  * password) and copies it, so the common case is a single click. Anything more
- * involved — password, different expiry, revoke — lives in SharePanel.
+ * involved — password, different expiry, revoke — is API-only for now
+ * (`POST`/`DELETE /api/scenes/[id]/share`); there's no UI for it.
  */
 export default function CopyShareLink({
   sceneId,
   initialUrl,
   compact = false,
+  iconOnly = false,
 }: {
   sceneId: string;
   /** Existing link, when the caller already knows it. */
   initialUrl: string | null;
   /** Tighter styling for dense rows like the dashboard list. */
   compact?: boolean;
+  /** Icon-only rendering for tight spaces, like the viewer toolbar. */
+  iconOnly?: boolean;
 }) {
   const router = useRouter();
   const [url, setUrl] = useState<string | null>(initialUrl);
@@ -80,6 +84,36 @@ export default function CopyShareLink({
       : url
         ? "Copy link"
         : "Copy share link";
+
+  if (iconOnly) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <button
+          type="button"
+          onClick={copy}
+          disabled={busy}
+          aria-label={label}
+          title={label}
+          className="text-neutral-500 hover:text-neutral-900 disabled:opacity-40 dark:hover:text-neutral-200"
+        >
+          {copied ? "✅" : "🔗"}
+        </button>
+        {error ? (
+          <span className="text-xs text-red-600 dark:text-red-400">
+            {error}
+            {url ? (
+              <>
+                {" — "}
+                <a href={url} className="underline underline-offset-2">
+                  open it
+                </a>
+              </>
+            ) : null}
+          </span>
+        ) : null}
+      </span>
+    );
+  }
 
   return (
     <span className={compact ? "shrink-0" : "inline-flex flex-col gap-1"}>

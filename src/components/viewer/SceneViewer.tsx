@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useMemo, useState } from "react";
+import CopyShareLink from "@/components/CopyShareLink";
 import {
   OUTPUT_LABEL,
   sparkFileTypeFor,
@@ -23,6 +24,7 @@ export default function SceneViewer({
   sceneId,
   outputs,
   allowDownload = true,
+  share = null,
 }: {
   sceneId: string;
   outputs: ViewableOutput[];
@@ -32,6 +34,8 @@ export default function SceneViewer({
    * removes the obvious affordance rather than protecting the bytes.
    */
   allowDownload?: boolean;
+  /** Owner-only quick-share button next to Download. Omit for share-link visitors. */
+  share?: { initialUrl: string | null } | null;
 }) {
   const [activeId, setActiveId] = useState(outputs[0]?.id ?? "");
   const [state, setState] = useState<LoadState>({ phase: "loading", progress: 0 });
@@ -82,10 +86,15 @@ export default function SceneViewer({
           {allowDownload ? (
             <a
               href={`/api/scenes/${sceneId}/outputs/${active.id}`}
+              aria-label="Download"
+              title="Download"
               className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200"
             >
-              Download
+              ⬇️
             </a>
+          ) : null}
+          {share ? (
+            <CopyShareLink sceneId={sceneId} initialUrl={share.initialUrl} iconOnly />
           ) : null}
         </div>
       </div>

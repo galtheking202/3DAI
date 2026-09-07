@@ -279,7 +279,13 @@ export class KiriGenerator implements Generator3D {
     } catch {
       throw new Error(`KIRI ${url} returned non-JSON: ${text.slice(0, 200)}`);
     }
-    if (body.ok === false || (typeof body.code === "number" && body.code !== 0)) {
+    // KIRI is inconsistent about `code`: the docs show 0 on success, but the
+    // photo endpoints return 200. Trust the `ok` flag; only fall back to `code`
+    // (0 or 200 = fine) when `ok` is absent.
+    const success =
+      body.ok === true ||
+      (body.ok === undefined && (body.code === 0 || body.code === 200));
+    if (!success) {
       throw new Error(`KIRI error (${body.code}): ${body.msg || "no message"}`);
     }
     return body.data;

@@ -19,6 +19,13 @@ const MAX_VIDEO_BYTES = 300 * 1024 * 1024;
 const MIN_IMAGES = 20;
 const MAX_IMAGES = 300;
 
+/** KIRI's photogrammetry decodes by file extension and only handles JPEG/PNG.
+ *  The uploader also takes WebP and HEIC — neither is sent to KIRI. */
+const IMAGE_EXT: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+};
+
 // getStatus: -1 uploading, 0 processing, 1 failed, 2 successful, 3 queuing, 4 expired
 const STATUS_OK = 2;
 const STATUS_FAILED = 1;
@@ -90,7 +97,10 @@ export class KiriGenerator implements Generator3D {
     ctx: GeneratorContext,
   ): Promise<GeneratorOutput[]> {
     const video = input.assets.find((a) => a.type === "VIDEO");
-    const images = input.assets.filter((a) => a.type === "IMAGE");
+    const allImages = input.assets.filter((a) => a.type === "IMAGE").length;
+    const images = input.assets.filter(
+      (a) => a.type === "IMAGE" && a.mimeType in IMAGE_EXT,
+    );
 
     let serialize: string;
     let source: string;
@@ -119,17 +129,23 @@ export class KiriGenerator implements Generator3D {
       for (const img of use) {
         if (ctx.signal.aborted) throw abortError();
         const buf = await this.fetchBuffer(img.url, ctx.signal);
+        const name = `img-${String(i++).padStart(3, "0")}${IMAGE_EXT[img.mimeType]}`;
         form.append(
           "imagesFiles",
-          new Blob([part(buf)], { type: img.mimeType || "image/jpeg" }),
-          `img-${String(i++).padStart(3, "0")}`,
+          new Blob([part(buf)], { type: img.mimeType }),
+          name,
         );
       }
       serialize = await this.create(`${API_BASE}/photo/image`, form, ctx.signal);
       source = `${use.length} images`;
     } else {
+      const skipped = allImages - images.length;
       throw new Error(
-        `KIRI needs a walkthrough video or at least ${MIN_IMAGES} photos; this scene has ${video ? 1 : 0} video and ${images.length} photo(s)`,
+        `KIRI needs a walkthrough video or at least ${MIN_IMAGES} JPEG/PNG photos; ` +
+          `this scene has ${video ? 1 : 0} video and ${images.length} usable photo(s)` +
+          (skipped > 0
+            ? ` (${skipped} skipped — only JPEG and PNG are sent to KIRI)`
+            : ""),
       );
     }
 
@@ -167,7 +183,7 @@ export class KiriGenerator implements Generator3D {
     const f = new FormData();
     f.append("modelQuality", env.KIRI_MODEL_QUALITY);
     f.append("textureQuality", env.KIRI_TEXTURE_QUALITY);
-    f.append("fileFormat", "glb");
+    f.append("fileFormat", "GLB"); // KIRI's docs show the value uppercase
     f.append("isMask", env.KIRI_MASK ? "1" : "0");
     f.append("textureSmoothing", "0");
     return f;

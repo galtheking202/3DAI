@@ -7,6 +7,7 @@ import { presignDownload } from "@/lib/storage";
 import type { ViewableOutput } from "@/lib/outputs";
 import CopyShareLink from "@/components/CopyShareLink";
 import ModelThumbnail from "@/components/viewer/ModelThumbnail";
+import UserMenu from "@/components/UserMenu";
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft",
@@ -36,6 +37,8 @@ export default async function DashboardPage() {
       outputs: { orderBy: { createdAt: "asc" }, take: 1 },
     },
   });
+
+  const avatarUrl = user.image ? await presignDownload(user.image) : null;
 
   const appUrl = env.APP_URL.replace(/\/$/, "");
   const shareUrlFor = (links: { slug: string; expiresAt: Date | null }[]) => {
@@ -72,24 +75,27 @@ export default async function DashboardPage() {
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Your scenes</h1>
         </div>
-        <div className="flex min-w-0 items-center gap-3 text-sm">
-          <span className="min-w-0 truncate text-neutral-500">{user.email}</span>
-          <form method="post" action="/api/auth/logout" className="shrink-0">
-            <button className="rounded-md border border-neutral-300 px-3 py-1.5 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900">
-              Sign out
-            </button>
-          </form>
-        </div>
+        <UserMenu email={user.email} imageUrl={avatarUrl} />
       </header>
 
-      <div className="mt-8">
-        <Link
-          href="/dashboard/new"
-          className="inline-block rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+      <Link
+        href="/dashboard/new"
+        aria-label="New scene"
+        title="New scene"
+        className="fixed bottom-6 right-6 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-neutral-900 text-white shadow-lg transition hover:bg-neutral-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 dark:focus-visible:outline-white"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          className="h-6 w-6"
+          aria-hidden="true"
         >
-          New scene
-        </Link>
-      </div>
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </Link>
 
       {scenes.length === 0 ? (
         <p className="mt-8 rounded-md border border-dashed border-neutral-300 px-4 py-10 text-center text-sm text-neutral-500 dark:border-neutral-700">

@@ -16,6 +16,7 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
+  image     String?  // storage key for the avatar; presigned at render time
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

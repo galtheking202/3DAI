@@ -60,6 +60,20 @@ export function keyBelongsToScene(key: string, sceneId: string): boolean {
   return key.startsWith(`scenes/${sceneId}/assets/`);
 }
 
+/**
+ * Storage key for a user's avatar image. Random segment as with `assetKey`, so
+ * the upload can be presigned before anything is written to the User row.
+ */
+export function avatarKey(userId: string, filename: string): string {
+  const ext = (filename.match(/\.[a-z0-9]{1,8}$/i)?.[0] ?? "").toLowerCase();
+  return `users/${userId}/avatar/${randomBytes(16).toString("hex")}${ext}`;
+}
+
+/** True when `key` sits under the given user's avatar prefix. */
+export function keyBelongsToUser(key: string, userId: string): boolean {
+  return key.startsWith(`users/${userId}/avatar/`);
+}
+
 /** Storage key for a generated output (worker writes these). */
 export function outputKey(sceneId: string, ext: string): string {
   return `scenes/${sceneId}/outputs/${randomBytes(16).toString("hex")}.${ext}`;

@@ -19,6 +19,8 @@ export const MAX_VIDEO_BYTES = 750 * 1024 * 1024; // 750 MB
 export const MAX_IMAGE_BYTES = 30 * 1024 * 1024; // 30 MB
 export const MAX_ASSETS_PER_SCENE = 60;
 
+export const MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 5 MB
+
 export const ACCEPTED_VIDEO_MIME = [
   "video/mp4",
   "video/quicktime",
@@ -40,6 +42,19 @@ export const ACCEPTED_MIME = [
 
 /** `accept` attribute for a file input. */
 export const FILE_INPUT_ACCEPT = ACCEPTED_MIME.join(",");
+
+/**
+ * Avatars are shown in an `<img>`, so the browser has to be able to decode them
+ * — that rules out the HEIC/HEIF the scene uploader otherwise accepts.
+ */
+export const AVATAR_IMAGE_MIME = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+
+/** `accept` attribute for the avatar file input. */
+export const AVATAR_INPUT_ACCEPT = AVATAR_IMAGE_MIME.join(",");
 
 const EXT_TO_MIME: Record<string, string> = {
   mp4: "video/mp4",
@@ -99,5 +114,23 @@ export function checkFile(file: { type: string; size: number }): string | null {
   const max = maxBytesForType(type);
   if (file.size <= 0) return "File is empty";
   if (file.size > max) return `Too large (max ${formatBytes(max)})`;
+  return null;
+}
+
+/**
+ * Same idea as `checkFile`, but for an avatar: a small JPEG/PNG/WebP. Returns an
+ * error string, or null when the file is acceptable.
+ */
+export function checkAvatarFile(file: {
+  type: string;
+  size: number;
+}): string | null {
+  if (!(AVATAR_IMAGE_MIME as readonly string[]).includes(file.type)) {
+    return "Use a JPEG, PNG, or WebP image";
+  }
+  if (file.size <= 0) return "File is empty";
+  if (file.size > MAX_AVATAR_BYTES) {
+    return `Too large (max ${formatBytes(MAX_AVATAR_BYTES)})`;
+  }
   return null;
 }

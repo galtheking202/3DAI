@@ -23,12 +23,17 @@ export default async function LoginPage({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
-      <Link href="/" className="text-sm font-medium uppercase tracking-widest text-neutral-500">
+      <Link href="/" className="text-sm font-medium uppercase tracking-widest text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200">
         3DAI
       </Link>
-      <h1 className="mt-4 text-2xl font-semibold tracking-tight">Sign in</h1>
+      <h1 className="mt-4 text-2xl font-semibold tracking-tight">Sign in to 3DAI</h1>
       <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-        Enter your email and we&apos;ll send you a one-time sign-in link.
+        3DAI turns walkthrough video into shareable 3D spaces you control. Enter
+        your email and we&apos;ll send a one-time sign-in link — no password, and
+        nothing to install.{" "}
+        <Link href="/" className="underline underline-offset-2">
+          What is 3DAI?
+        </Link>
       </p>
 
       {sent ? (
@@ -62,9 +67,15 @@ export default async function LoginPage({
         </p>
       ) : null}
 
-      <p className="mt-10 text-xs text-neutral-400">
+      <p className="mt-10 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-400">
+        <Link href="/about" className="underline underline-offset-2">
+          About
+        </Link>
         <Link href="/privacy" className="underline underline-offset-2">
           Privacy
+        </Link>
+        <Link href="/terms" className="underline underline-offset-2">
+          Terms
         </Link>
       </p>
     </main>

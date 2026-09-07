@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — 3DAI",
@@ -347,11 +348,7 @@ export default function PrivacyPage() {
         </Section>
       </div>
 
-      <p className="mt-12 text-xs text-neutral-400">
-        <Link href="/" className="underline underline-offset-2">
-          Back to 3DAI
-        </Link>
-      </p>
+      <SiteFooter />
     </main>
   );
 }

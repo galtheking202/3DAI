@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   FILE_INPUT_ACCEPT,
   MAX_ASSETS_PER_SCENE,
@@ -56,6 +57,7 @@ export default function AssetUploader({
   initialAssets: SceneAsset[];
   editable: boolean;
 }) {
+  const router = useRouter();
   const [assets, setAssets] = useState<SceneAsset[]>(initialAssets);
   const [pending, setPending] = useState<Pending[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -116,6 +118,9 @@ export default function AssetUploader({
           cur.some((a) => a.id === asset.id) ? cur : [...cur, asset],
         );
         dropPending(entry.id);
+        // Re-run the server render so GeneratePanel sees the new asset count
+        // (its "Generate 3D" button is disabled while the scene has no files).
+        router.refresh();
       } catch (err) {
         patchPending(entry.id, {
           status: "error",
@@ -123,7 +128,7 @@ export default function AssetUploader({
         });
       }
     },
-    [sceneId, patchPending, dropPending],
+    [sceneId, patchPending, dropPending, router],
   );
 
   const addFiles = useCallback(
@@ -200,9 +205,12 @@ export default function AssetUploader({
       });
       if (!res.ok && res.status !== 404) {
         setAssets(snapshot); // put it back
+        return;
       }
+      // Keep the server render (and GeneratePanel's asset count) in sync.
+      router.refresh();
     },
-    [assets, sceneId],
+    [assets, sceneId, router],
   );
 
   return (

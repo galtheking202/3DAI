@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { presignDownload } from "@/lib/storage";
 import Logo from "@/components/Logo";
 import UserMenu from "@/components/UserMenu";
+import ThemeToggle from "@/components/ThemeToggle";
 
 /**
  * Top bar for every signed-in page — the dashboard, a scene, the new-scene
@@ -24,7 +25,10 @@ export default async function DashboardLayout({
           <Link href="/dashboard" aria-label="3DAI dashboard" className="inline-block">
             <Logo />
           </Link>
-          {user ? <UserMenu email={user.email} imageUrl={avatarUrl} /> : null}
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            {user ? <UserMenu email={user.email} imageUrl={avatarUrl} /> : null}
+          </div>
         </div>
       </header>
       {children}

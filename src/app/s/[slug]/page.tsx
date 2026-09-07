@@ -9,6 +9,7 @@ import type { ViewableOutput } from "@/lib/outputs";
 import SceneViewer from "@/components/viewer/SceneViewer";
 import AdBanner from "@/components/AdBanner";
 import Logo from "@/components/Logo";
+import ThemeToggle from "@/components/ThemeToggle";
 import PasswordGate from "./PasswordGate";
 
 // Every load re-checks the link, so a revoked or expired one dies immediately
@@ -165,19 +166,22 @@ export default async function SharePage({
         </aside>
       ) : null}
 
-      <footer className="mt-2 shrink-0 text-center text-xs text-neutral-400">
-        Shared with you via{" "}
-        <a href="/" className="underline underline-offset-2">
-          3DAI
-        </a>
-        {" · "}
-        <a href="/privacy" className="underline underline-offset-2">
-          Privacy
-        </a>
-        {" · "}
-        <a href="/terms" className="underline underline-offset-2">
-          Terms
-        </a>
+      <footer className="mt-2 flex shrink-0 items-center justify-center gap-3 text-xs text-neutral-400">
+        <span>
+          Shared with you via{" "}
+          <a href="/" className="underline underline-offset-2">
+            3DAI
+          </a>
+          {" · "}
+          <a href="/privacy" className="underline underline-offset-2">
+            Privacy
+          </a>
+          {" · "}
+          <a href="/terms" className="underline underline-offset-2">
+            Terms
+          </a>
+        </span>
+        <ThemeToggle className="h-7 w-7" />
       </footer>
     </main>
   );

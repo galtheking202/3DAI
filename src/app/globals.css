@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* Dark mode is toggled by a `.dark` class on <html> (set before paint by the
+   inline script in layout.tsx), not by the OS media query. "System" is still
+   the default — the script resolves it — but the class lets a manual toggle
+   override it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
 }

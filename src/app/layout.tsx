@@ -17,8 +17,16 @@ export default function RootLayout({
   const adsClient = adsenseClient();
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Resolve and apply the theme before first paint so there is no flash
+            of the wrong one. Reads the saved choice, falls back to the OS. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              '(function(){try{var t=localStorage.getItem("theme");var m=window.matchMedia("(prefers-color-scheme: dark)").matches;if(t==="dark"||((t===null||t==="system")&&m)){document.documentElement.classList.add("dark")}}catch(e){}})();',
+          }}
+        />
         {adsClient ? (
           <script
             async

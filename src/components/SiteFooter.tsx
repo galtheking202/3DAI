@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Logo from "@/components/Logo";
+import ThemeToggle from "@/components/ThemeToggle";
 
 /** Shared footer for the public pages — the "this is a real product" markers
  *  (owner, contact, policies) that a bare app is missing. */
@@ -18,18 +19,21 @@ export default function SiteFooter() {
           galshaulker@gmail.com
         </a>
       </p>
-      <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-        <span>© {new Date().getFullYear()} 3DAI</span>
-        <Link className="underline underline-offset-2" href="/about">
-          About
-        </Link>
-        <Link className="underline underline-offset-2" href="/privacy">
-          Privacy
-        </Link>
-        <Link className="underline underline-offset-2" href="/terms">
-          Terms
-        </Link>
-      </p>
+      <div className="mt-2 flex items-center justify-between gap-4">
+        <p className="flex flex-wrap gap-x-4 gap-y-1">
+          <span>© {new Date().getFullYear()} 3DAI</span>
+          <Link className="underline underline-offset-2" href="/about">
+            About
+          </Link>
+          <Link className="underline underline-offset-2" href="/privacy">
+            Privacy
+          </Link>
+          <Link className="underline underline-offset-2" href="/terms">
+            Terms
+          </Link>
+        </p>
+        <ThemeToggle />
+      </div>
     </footer>
   );
 }

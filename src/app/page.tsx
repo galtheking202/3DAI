@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import Logo from "@/components/Logo";
 import SiteFooter from "@/components/SiteFooter";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export const metadata: Metadata = {
   title: "3DAI — shareable 3D captures of your objects and spaces",
@@ -41,12 +42,15 @@ export default async function HomePage() {
     <main className="mx-auto max-w-3xl px-6 py-10">
       <nav className="flex items-center justify-between">
         <Logo />
-        <Link
-          href={user ? "/dashboard" : "/login"}
-          className="text-sm text-neutral-600 underline underline-offset-2 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200"
-        >
-          {user ? "Dashboard" : "Sign in"}
-        </Link>
+        <div className="flex items-center gap-4">
+          <ThemeToggle />
+          <Link
+            href={user ? "/dashboard" : "/login"}
+            className="text-sm text-neutral-600 underline underline-offset-2 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200"
+          >
+            {user ? "Dashboard" : "Sign in"}
+          </Link>
+        </div>
       </nav>
 
       <section className="mt-16">

@@ -8,6 +8,7 @@ import type { ViewableOutput } from "@/lib/outputs";
 import CopyShareLink from "@/components/CopyShareLink";
 import ModelThumbnail from "@/components/viewer/ModelThumbnail";
 import UserMenu from "@/components/UserMenu";
+import Logo from "@/components/Logo";
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft",
@@ -70,9 +71,9 @@ export default async function DashboardPage() {
     <main className="mx-auto max-w-3xl px-6 py-12">
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium uppercase tracking-widest text-neutral-500">
-            3DAI
-          </p>
+          <Link href="/" aria-label="3DAI home" className="inline-block">
+            <Logo />
+          </Link>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Your scenes</h1>
         </div>
         <UserMenu email={user.email} imageUrl={avatarUrl} />

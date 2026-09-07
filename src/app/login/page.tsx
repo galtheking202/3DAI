@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import Logo from "@/components/Logo";
 
 const MESSAGES: Record<string, string> = {
   email: "That doesn't look like a valid email address.",
@@ -23,8 +24,8 @@ export default async function LoginPage({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
-      <Link href="/" className="text-sm font-medium uppercase tracking-widest text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200">
-        3DAI
+      <Link href="/" aria-label="3DAI home">
+        <Logo />
       </Link>
       <h1 className="mt-4 text-2xl font-semibold tracking-tight">Sign in to 3DAI</h1>
       <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">

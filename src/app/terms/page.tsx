@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Logo from "@/components/Logo";
 import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
@@ -13,11 +14,8 @@ const EFFECTIVE = "September 7, 2026";
 export default function TermsPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-16">
-      <Link
-        href="/"
-        className="text-sm font-medium uppercase tracking-widest text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200"
-      >
-        3DAI
+      <Link href="/" aria-label="3DAI home">
+        <Logo />
       </Link>
 
       <h1 className="mt-4 text-3xl font-semibold tracking-tight">Terms of Service</h1>

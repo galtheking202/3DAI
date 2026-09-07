@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
+import Logo from "@/components/Logo";
 import SiteFooter from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
@@ -39,9 +40,7 @@ export default async function HomePage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
       <nav className="flex items-center justify-between">
-        <span className="text-sm font-medium uppercase tracking-widest text-neutral-500">
-          3DAI
-        </span>
+        <Logo />
         <Link
           href={user ? "/dashboard" : "/login"}
           className="text-sm text-neutral-600 underline underline-offset-2 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200"

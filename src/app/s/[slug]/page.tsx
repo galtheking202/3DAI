@@ -8,6 +8,7 @@ import { bannerAd } from "@/lib/ads";
 import type { ViewableOutput } from "@/lib/outputs";
 import SceneViewer from "@/components/viewer/SceneViewer";
 import AdBanner from "@/components/AdBanner";
+import Logo from "@/components/Logo";
 import PasswordGate from "./PasswordGate";
 
 // Every load re-checks the link, so a revoked or expired one dies immediately
@@ -185,9 +186,9 @@ export default async function SharePage({
 function Unavailable({ title, body }: { title: string; body: string }) {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 text-center">
-      <p className="text-sm font-medium uppercase tracking-widest text-neutral-500">
-        3DAI
-      </p>
+      <div className="flex justify-center">
+        <Logo />
+      </div>
       <h1 className="mt-3 text-2xl font-semibold tracking-tight">{title}</h1>
       <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{body}</p>
       <p className="mt-6 text-xs text-neutral-400">

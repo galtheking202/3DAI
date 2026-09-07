@@ -12,8 +12,9 @@ const POLL_INTERVAL_MS = 5_000;
 const MAX_WAIT_MS = 20 * 60_000; // fail the job if a task hangs past this
 const MAX_CONSECUTIVE_POLL_ERRORS = 5;
 
-/** Meshy accepts JPEG/PNG/WebP. HEIC (which the uploader also takes) is out. */
-const OK_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
+/** Meshy's multi-image endpoint documents JPEG/PNG only for `image_urls`.
+ *  The uploader also takes WebP and HEIC — neither goes to Meshy. */
+const OK_IMAGE_MIME = new Set(["image/jpeg", "image/png"]);
 
 type CreateResponse = { result: string };
 
@@ -82,7 +83,7 @@ export class MeshyGenerator implements Generator3D {
 
     if (images.length === 0) {
       throw new Error(
-        "Meshy multi-image needs 1-4 JPEG/PNG/WebP photos of the object; this scene has none",
+        "Meshy multi-image needs 1-4 JPEG or PNG photos of the object; this scene has none (WebP and HEIC are not accepted)",
       );
     }
 
@@ -92,6 +93,7 @@ export class MeshyGenerator implements Generator3D {
       should_texture: true,
       enable_pbr: true,
       texture_resolution: env.MESHY_TEXTURE_RESOLUTION,
+      target_formats: ["glb"],
     };
 
     ctx.log(

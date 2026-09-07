@@ -1,6 +1,7 @@
 import { env } from "@/lib/env";
 import { MockGenerator } from "./mock";
 import { AtlasGenerator } from "./atlas";
+import { MeshyGenerator } from "./meshy";
 import type { Generator3D } from "./types";
 
 export type {
@@ -16,6 +17,11 @@ let instance: Generator3D | null = null;
 /** The generator selected by `GENERATOR` env, memoized for the process. */
 export function getGenerator(): Generator3D {
   if (instance) return instance;
-  instance = env.GENERATOR === "atlas" ? new AtlasGenerator() : new MockGenerator();
+  instance =
+    env.GENERATOR === "atlas"
+      ? new AtlasGenerator()
+      : env.GENERATOR === "meshy"
+        ? new MeshyGenerator()
+        : new MockGenerator();
   return instance;
 }

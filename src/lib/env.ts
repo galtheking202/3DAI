@@ -25,7 +25,14 @@ const schema = z.object({
   S3_BUCKET: z.string().min(1).default("3dai-media"),
   S3_FORCE_PATH_STYLE: z.stringbool().default(true),
 
-  GENERATOR: z.enum(["mock", "atlas"]).default("mock"),
+  GENERATOR: z.enum(["mock", "atlas", "meshy"]).default("mock"),
+
+  // Meshy multi-image-to-3D engine (GENERATOR=meshy). The key is only required
+  // when that engine is selected; the others ignore these. See
+  // src/lib/generator/meshy.ts.
+  MESHY_API_KEY: z.string().optional(),
+  MESHY_AI_MODEL: z.string().default("meshy-5"),
+  MESHY_TEXTURE_RESOLUTION: z.enum(["2k", "4k", "8k"]).default("2k"),
 
   // Ads. A single Google AdSense banner under the model on public /s/<slug>
   // pages. Shown only when ADS_ENABLED is true AND both IDs are set; owners

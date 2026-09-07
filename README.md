@@ -71,13 +71,25 @@ and records an `Asset` row.
 
 Generate: **Generate 3D** on the scene page enqueues a `Job` and flips the scene
 to `QUEUED`. The worker (`npm run worker`) claims it (`FOR UPDATE SKIP LOCKED`,
-so you can run several), runs the configured `Generator3D` — `MockGenerator`
-uploads a bundled sample GLB after a short delay — writes `SceneOutput` rows and
-sets the scene `READY`. Failures retry up to `WORKER_MAX_ATTEMPTS`, then land in
-`FAILED` with a "Try again" button. The scene page polls while a run is live.
-`GENERATOR` selects the engine. Be aware that swapping in a real one is *not*
-a drop-in: `Generator3D.generate()` is a single blocking call, and real engines
-are submit-then-poll over minutes. See [Known gaps](#known-gaps).
+so you can run several), runs the configured `Generator3D`, writes `SceneOutput`
+rows and sets the scene `READY`. Failures retry up to `WORKER_MAX_ATTEMPTS`, then
+land in `FAILED` with a "Try again" button. The scene page polls while a run is
+live.
+
+`GENERATOR` selects the engine:
+
+- `mock` (default) — `MockGenerator` uploads a bundled sample GLB after a short
+  delay. Ignores the input.
+- `meshy` — `MeshyGenerator` sends up to 4 of the scene's photos to Meshy's
+  [multi-image-to-3D API](https://docs.meshy.ai/en/api/multi-image-to-3d),
+  polls the task, and stores the textured GLB. Generative, not photogrammetry,
+  so it suits `OBJECT` scenes, not whole `APARTMENT`/`VEHICLE` captures. Needs
+  `MESHY_API_KEY` (see Environment); `MESHY_AI_MODEL` and
+  `MESHY_TEXTURE_RESOLUTION` tune quality vs. credit cost. The submit-then-poll
+  loop runs inside the single `generate()` call and honours the shutdown
+  signal, so it fits the existing worker without pipeline changes — but one
+  worker is tied up for the minutes a run takes; scale by running more workers.
+- `atlas` — World Labs Atlas placeholder, not implemented.
 
 Processing runs entirely on the `worker` process, independent of any browser
 tab — closing the tab mid-run doesn't stop or lose the job. To let a user know
@@ -179,6 +191,19 @@ production.
 `${APP_URL}/s/<slug>`. If you put a custom domain on the app, update `APP_URL`
 at the same time or newly created links will point at the old hostname. Existing
 links keep working either way — only the slug is stored.
+
+`MESHY_API_KEY` is required only when `GENERATOR=meshy`, and only on the
+`worker` service (the web service never generates). Set it there together with
+`GENERATOR`:
+
+```bash
+railway variables set MESHY_API_KEY=<key> --service worker --skip-deploys
+railway variables set GENERATOR=meshy --service worker --skip-deploys
+railway up --service worker
+```
+
+`MESHY_AI_MODEL` (default `meshy-5`; `latest` for best quality at more credits)
+and `MESHY_TEXTURE_RESOLUTION` (`2k`/`4k`/`8k`) trade quality against cost.
 
 `ADS_ENABLED` is the master switch for Google AdSense. With `ADS_ENABLED` +
 `ADS_CLIENT` (your `ca-pub-…` publisher ID) the `adsbygoogle.js` loader is

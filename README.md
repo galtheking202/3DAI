@@ -80,16 +80,28 @@ live.
 
 - `mock` (default) — `MockGenerator` uploads a bundled sample GLB after a short
   delay. Ignores the input.
-- `meshy` — `MeshyGenerator` sends up to 4 of the scene's photos to Meshy's
-  [multi-image-to-3D API](https://docs.meshy.ai/en/api/multi-image-to-3d),
-  polls the task, and stores the textured GLB. Generative, not photogrammetry,
-  so it suits `OBJECT` scenes, not whole `APARTMENT`/`VEHICLE` captures. Needs
-  `MESHY_API_KEY` (see Environment); `MESHY_AI_MODEL` and
-  `MESHY_TEXTURE_RESOLUTION` tune quality vs. credit cost. The submit-then-poll
-  loop runs inside the single `generate()` call and honours the shutdown
-  signal, so it fits the existing worker without pipeline changes — but one
-  worker is tied up for the minutes a run takes; scale by running more workers.
+- `meshy` — `MeshyGenerator` sends up to 4 of the scene's JPEG/PNG photos to
+  Meshy's [multi-image-to-3D API](https://docs.meshy.ai/en/api/multi-image-to-3d),
+  polls the task, and stores the textured GLB. **Generative**, not
+  photogrammetry: it invents plausible geometry, so proportions are not
+  reliable and it suits `OBJECT` scenes, not whole `APARTMENT`/`VEHICLE`
+  captures. Needs `MESHY_API_KEY`; `MESHY_AI_MODEL` and
+  `MESHY_TEXTURE_RESOLUTION` tune quality vs. credit cost.
+- `kiri` — `KiriGenerator` uploads the scene's walkthrough **video** (or, if
+  there's no video, >=20 photos) to the
+  [KIRI Engine API](https://docs.kiriengine.app/), polls `getStatus`, then
+  downloads the result zip and stores the `.glb` from it. **Photogrammetry** —
+  real reconstruction, so proportions are trustworthy and it handles spaces
+  and vehicles too. Needs `KIRI_API_KEY`; `KIRI_MODEL_QUALITY`,
+  `KIRI_TEXTURE_QUALITY` and `KIRI_MASK` (background removal) tune it. Video
+  must be <=1080p / <=3 min; the generator caps the upload at 300 MB.
 - `atlas` — World Labs Atlas placeholder, not implemented.
+
+Both real engines run their upload + poll inside the single `generate()` call
+and honour the shutdown signal, so they fit the existing worker with no
+pipeline changes — but one worker is tied up for the whole (often long) run;
+scale by running more workers. A retry after the external task was created
+starts a fresh one and spends more credits.
 
 Processing runs entirely on the `worker` process, independent of any browser
 tab — closing the tab mid-run doesn't stop or lose the job. To let a user know
@@ -192,18 +204,20 @@ production.
 at the same time or newly created links will point at the old hostname. Existing
 links keep working either way — only the slug is stored.
 
-`MESHY_API_KEY` is required only when `GENERATOR=meshy`, and only on the
-`worker` service (the web service never generates). Set it there together with
-`GENERATOR`:
+`MESHY_API_KEY` / `KIRI_API_KEY` are required only when the matching
+`GENERATOR` is selected, and only on the `worker` service (the web service
+never generates). Set the key and `GENERATOR` together, then redeploy:
 
 ```bash
-railway variables set MESHY_API_KEY=<key> --service worker --skip-deploys
-railway variables set GENERATOR=meshy --service worker --skip-deploys
+railway variables set KIRI_API_KEY=<key> --service worker --skip-deploys
+railway variables set GENERATOR=kiri --service worker --skip-deploys
 railway up --service worker
 ```
 
 `MESHY_AI_MODEL` (default `meshy-5`; `latest` for best quality at more credits)
-and `MESHY_TEXTURE_RESOLUTION` (`2k`/`4k`/`8k`) trade quality against cost.
+and `MESHY_TEXTURE_RESOLUTION` (`2k`/`4k`/`8k`) trade Meshy quality against
+cost. `KIRI_MODEL_QUALITY` / `KIRI_TEXTURE_QUALITY` (`0`–`3`) and `KIRI_MASK`
+(`true` to isolate the object from its background) do the same for KIRI.
 
 `ADS_ENABLED` is the master switch for Google AdSense. With `ADS_ENABLED` +
 `ADS_CLIENT` (your `ca-pub-…` publisher ID) the `adsbygoogle.js` loader is

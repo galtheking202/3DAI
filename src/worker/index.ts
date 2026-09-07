@@ -75,6 +75,7 @@ async function runJob(job: ClaimedJob, signal: AbortSignal): Promise<void> {
           type: a.type,
           mimeType: a.mimeType,
           storageKey: a.storageKey,
+          sizeBytes: Number(a.sizeBytes),
           url: await presignDownload(a.storageKey),
         })),
       ),

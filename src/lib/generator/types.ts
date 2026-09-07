@@ -5,6 +5,8 @@ export type GeneratorAsset = {
   type: AssetType;
   mimeType: string;
   storageKey: string;
+  /** Size of the stored object in bytes. */
+  sizeBytes: number;
   /** Time-limited GET URL for the object. */
   url: string;
 };

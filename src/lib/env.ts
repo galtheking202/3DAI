@@ -25,7 +25,7 @@ const schema = z.object({
   S3_BUCKET: z.string().min(1).default("3dai-media"),
   S3_FORCE_PATH_STYLE: z.stringbool().default(true),
 
-  GENERATOR: z.enum(["mock", "atlas", "meshy"]).default("mock"),
+  GENERATOR: z.enum(["mock", "atlas", "meshy", "kiri"]).default("mock"),
 
   // Meshy multi-image-to-3D engine (GENERATOR=meshy). The key is only required
   // when that engine is selected; the others ignore these. See
@@ -33,6 +33,13 @@ const schema = z.object({
   MESHY_API_KEY: z.string().optional(),
   MESHY_AI_MODEL: z.string().default("meshy-5"),
   MESHY_TEXTURE_RESOLUTION: z.enum(["2k", "4k", "8k"]).default("2k"),
+
+  // KIRI Engine photogrammetry (GENERATOR=kiri). Takes a walkthrough video or
+  // >=20 photos and returns a measured GLB. See src/lib/generator/kiri.ts.
+  KIRI_API_KEY: z.string().optional(),
+  KIRI_MODEL_QUALITY: z.enum(["0", "1", "2", "3"]).default("1"), // 0 High 1 Med 2 Low 3 Ultra
+  KIRI_TEXTURE_QUALITY: z.enum(["0", "1", "2", "3"]).default("1"), // 0 4K 1 2K 2 1K 3 8K
+  KIRI_MASK: z.stringbool().default(true), // auto background/object masking
 
   // Ads. A single Google AdSense banner under the model on public /s/<slug>
   // pages. Shown only when ADS_ENABLED is true AND both IDs are set; owners

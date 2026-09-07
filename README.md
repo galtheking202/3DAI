@@ -76,7 +76,8 @@ rows and sets the scene `READY`. Failures retry up to `WORKER_MAX_ATTEMPTS`, the
 land in `FAILED` with a "Try again" button. The scene page polls while a run is
 live.
 
-`GENERATOR` selects the engine:
+`GENERATOR` sets the **default** engine; each scene can override it from the
+generate panel (stored on `Scene.generator`, used by the worker per job):
 
 - `mock` (default) — `MockGenerator` uploads a bundled sample GLB after a short
   delay. Ignores the input.

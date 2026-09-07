@@ -23,8 +23,6 @@ import {
   type ClaimedJob,
 } from "@/lib/jobs";
 
-const generator = getGenerator();
-
 function log(msg: string, extra?: Record<string, unknown>) {
   const tail = extra ? ` ${JSON.stringify(extra)}` : "";
   console.log(`${new Date().toISOString()} [worker] ${msg}${tail}`);
@@ -63,8 +61,10 @@ async function runJob(job: ClaimedJob, signal: AbortSignal): Promise<void> {
   }
 
   const sceneUrl = new URL(`/dashboard/scenes/${scene.id}`, env.APP_URL).toString();
+  const generator = getGenerator(scene.generator);
 
   await markSceneProcessing(scene.id);
+  log("engine selected", { jobId: job.id, generator: generator.name });
 
   try {
     const input: GeneratorInput = {
@@ -129,7 +129,7 @@ async function main() {
   process.on("SIGTERM", () => stop("SIGTERM"));
 
   log("started", {
-    generator: generator.name,
+    defaultGenerator: env.GENERATOR,
     pollMs: env.WORKER_POLL_INTERVAL_MS,
     maxAttempts: env.WORKER_MAX_ATTEMPTS,
   });

@@ -12,24 +12,45 @@ export type {
   GeneratorInput,
   GeneratorOutput,
 } from "./types";
+export {
+  SELECTABLE_GENERATORS,
+  GENERATOR_LABEL,
+  isSelectableGenerator,
+  type SelectableGenerator,
+} from "./names";
 
-let instance: Generator3D | null = null;
+const cache = new Map<string, Generator3D>();
 
-/** The generator selected by `GENERATOR` env, memoized for the process. */
-export function getGenerator(): Generator3D {
-  if (instance) return instance;
-  switch (env.GENERATOR) {
+function build(name: string): Generator3D {
+  switch (name) {
     case "atlas":
-      instance = new AtlasGenerator();
-      break;
+      return new AtlasGenerator();
     case "meshy":
-      instance = new MeshyGenerator();
-      break;
+      return new MeshyGenerator();
     case "kiri":
-      instance = new KiriGenerator();
-      break;
+      return new KiriGenerator();
     default:
-      instance = new MockGenerator();
+      return new MockGenerator();
   }
-  return instance;
+}
+
+/**
+ * The generator for `name`, or the `GENERATOR` env default when `name` is
+ * missing or unknown. Instances are stateless, so they're memoized per name for
+ * the life of the process.
+ */
+export function getGenerator(name?: string | null): Generator3D {
+  const key =
+    name === "mock" ||
+    name === "atlas" ||
+    name === "meshy" ||
+    name === "kiri"
+      ? name
+      : env.GENERATOR;
+  let g = cache.get(key);
+  if (!g) {
+    g = build(key);
+    cache.set(key, g);
+  }
+  return g;
 }

@@ -4,6 +4,7 @@ import { Prisma, type SceneStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import type { GeneratorOutput } from "@/lib/generator";
+import { isSelectableGenerator } from "@/lib/generator/names";
 
 export type EnqueueResult =
   | { ok: true }
@@ -13,10 +14,15 @@ export type EnqueueResult =
  * Queue a generation run for a scene the user owns. Allowed from DRAFT (first
  * run) or FAILED (retry). Sets the scene to QUEUED and creates a PENDING job in
  * one transaction; refuses if a run is already active or there are no assets.
+ *
+ * `engine`, when a recognised name, is recorded on the scene and used by the
+ * worker for this and future runs; when omitted the scene keeps its previous
+ * choice (or the `GENERATOR` env default).
  */
 export async function enqueueGeneration(
   sceneId: string,
   userId: string,
+  engine?: string | null,
 ): Promise<EnqueueResult> {
   return db.$transaction(async (tx) => {
     const scene = await tx.scene.findFirst({
@@ -48,7 +54,10 @@ export async function enqueueGeneration(
     });
     await tx.scene.update({
       where: { id: sceneId },
-      data: { status: "QUEUED" },
+      data: {
+        status: "QUEUED",
+        ...(isSelectableGenerator(engine) ? { generator: engine } : {}),
+      },
     });
     return { ok: true };
   });

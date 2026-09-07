@@ -7,17 +7,21 @@ export const runtime = "nodejs";
 /**
  * Queue a 3D generation run for the scene. Works as both the first "Generate"
  * and the "Try again" after a failure — `enqueueGeneration` enforces which
- * states are eligible.
+ * states are eligible. An optional `{ engine }` in the body picks the
+ * generation engine and is remembered on the scene.
  */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const result = await enqueueGeneration(id, user.id);
+  const body = (await req.json().catch(() => null)) as { engine?: unknown } | null;
+  const engine = typeof body?.engine === "string" ? body.engine : undefined;
+
+  const result = await enqueueGeneration(id, user.id, engine);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.code });
   }

@@ -119,6 +119,8 @@ export default async function ScenePage({
             initialState={genState}
             assetCount={assets.length}
             shareUrl={share?.url ?? null}
+            generator={scene.generator}
+            defaultGenerator={env.GENERATOR}
           />
         </>
       ) : null}

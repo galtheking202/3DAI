@@ -75,6 +75,7 @@ model Scene {
   status       SceneStatus     @default(DRAFT)
   visibility   SceneVisibility @default(PRIVATE)
   passwordHash String?
+  generator    String? // generation engine: mock | meshy | kiri (null = GENERATOR env default)
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 

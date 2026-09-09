@@ -17,6 +17,26 @@ export function adsenseClient(): string | null {
 }
 
 /**
+ * Body of `/ads.txt` — the record AdSense reads to confirm Google is authorised
+ * to sell ad space on this domain — or `null` when no publisher ID is set.
+ *
+ * Gated on `ADS_CLIENT` alone, deliberately NOT on `ADS_ENABLED` (unlike
+ * everything else here): ads.txt is a standing authorisation Google expects to
+ * stay present and stable even while ad units are switched off. A missing
+ * ads.txt shows as "not found" in the AdSense console and, left long enough,
+ * puts the account at risk — so it should survive the ad kill switch.
+ *
+ * `pub-…` is derived from `ADS_CLIENT` (dropping the `ca-` the console prefixes
+ * it with); `f08c47fec0942fa0` is Google's fixed certification-authority ID,
+ * identical for every AdSense publisher.
+ */
+export function adsTxt(): string | null {
+  if (!env.ADS_CLIENT) return null;
+  const publisherId = env.ADS_CLIENT.replace(/^ca-/, "");
+  return `google.com, ${publisherId}, DIRECT, f08c47fec0942fa0\n`;
+}
+
+/**
  * The AdSense banner shown under the model on public share pages, or `null`
  * when ads are off or not fully configured.
  *

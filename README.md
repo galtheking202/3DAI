@@ -88,14 +88,19 @@ generate panel (stored on `Scene.generator`, used by the worker per job):
   reliable and it suits `OBJECT` scenes, not whole `APARTMENT`/`VEHICLE`
   captures. Needs `MESHY_API_KEY`; `MESHY_AI_MODEL` and
   `MESHY_TEXTURE_RESOLUTION` tune quality vs. credit cost.
-- `kiri` — `KiriGenerator` uploads the scene's walkthrough **video** (or, if
-  there's no video, >=20 photos) to the
+- `kiri` — `KiriGenerator` uploads the scene's photos (when there are >=20
+  JPEG/PNG; HEIC is skipped) or else its walkthrough **video** to the
   [KIRI Engine API](https://docs.kiriengine.app/), polls `getStatus`, then
   downloads the result zip and stores the `.glb` from it. **Photogrammetry** —
   real reconstruction, so proportions are trustworthy and it handles spaces
   and vehicles too. Needs `KIRI_API_KEY`; `KIRI_MODEL_QUALITY`,
   `KIRI_TEXTURE_QUALITY` and `KIRI_MASK` (background removal) tune it. Video
-  must be <=1080p / <=3 min; the generator caps the upload at 300 MB.
+  must be MP4/MOV, <=1080p / <=3 min and <=300 MB — checked from the file
+  header *before* upload. Each KIRI task costs a credit, so the generator never
+  auto-retries a paid step: bad input and KIRI-side failures fail the job once
+  (`PermanentError`), and the created task id is kept at
+  `scenes/<id>/state/kiri-task.json` so a retry after a timeout or crash
+  resumes that task instead of creating a new one.
 - `atlas` — World Labs Atlas placeholder, not implemented.
 
 Both real engines run their upload + poll inside the single `generate()` call

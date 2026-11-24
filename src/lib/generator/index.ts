@@ -12,6 +12,7 @@ export type {
   GeneratorInput,
   GeneratorOutput,
 } from "./types";
+export { PermanentError, isPermanentError } from "./types";
 export {
   SELECTABLE_GENERATORS,
   GENERATOR_LABEL,

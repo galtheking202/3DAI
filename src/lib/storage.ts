@@ -134,6 +134,28 @@ export async function headObject(
   }
 }
 
+/**
+ * Fixed key for small per-scene state the worker keeps between attempts (e.g.
+ * a paid provider task id to resume instead of re-creating).
+ */
+export function sceneStateKey(sceneId: string, name: string): string {
+  return `scenes/${sceneId}/state/${name}`;
+}
+
+/** Read a small object as UTF-8 text, or null if it does not exist. */
+export async function getObjectText(key: string): Promise<string | null> {
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
+    return (await res.Body?.transformToString("utf-8")) ?? null;
+  } catch (err) {
+    const status = (err as { $metadata?: { httpStatusCode?: number } }).$metadata
+      ?.httpStatusCode;
+    const name = (err as { name?: string }).name;
+    if (status === 404 || name === "NoSuchKey" || name === "NotFound") return null;
+    throw err;
+  }
+}
+
 /** Best-effort delete; a missing object is not an error. */
 export async function deleteObject(key: string): Promise<void> {
   await s3

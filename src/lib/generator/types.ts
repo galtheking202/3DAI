@@ -32,6 +32,19 @@ export type GeneratorContext = {
 };
 
 /**
+ * Throw this from a generator when retrying cannot help or would cost money
+ * (bad input, or a paid task the provider has already rejected). The worker
+ * fails the job outright instead of requeueing it.
+ */
+export class PermanentError extends Error {
+  readonly permanent = true;
+}
+
+export function isPermanentError(err: unknown): boolean {
+  return (err as { permanent?: unknown } | null)?.permanent === true;
+}
+
+/**
  * The single seam between the app and whatever actually builds the 3D scene.
  * `MockGenerator` today, `AtlasGenerator` once World Labs Atlas is available —
  * nothing else in the pipeline changes when that swap happens.

@@ -13,7 +13,11 @@
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { presignDownload } from "@/lib/storage";
-import { getGenerator, type GeneratorInput } from "@/lib/generator";
+import {
+  getGenerator,
+  isPermanentError,
+  type GeneratorInput,
+} from "@/lib/generator";
 import { sendSceneReady, sendSceneFailed } from "@/lib/email";
 import {
   claimNextJob,
@@ -101,7 +105,10 @@ async function runJob(job: ClaimedJob, signal: AbortSignal): Promise<void> {
         : err instanceof Error
           ? err.message
           : String(err);
-    const retried = await failJob(job.id, scene.id, job.attempts, message);
+    // A permanent error skips the remaining attempts: retrying bad input only
+    // fails again, and retrying a paid provider task spends more credits.
+    const attempts = isPermanentError(err) ? env.WORKER_MAX_ATTEMPTS : job.attempts;
+    const retried = await failJob(job.id, scene.id, attempts, message);
     log(retried ? "job failed, will retry" : "job failed permanently", {
       jobId: job.id,
       error: message,

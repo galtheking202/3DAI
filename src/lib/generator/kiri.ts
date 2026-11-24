@@ -1,11 +1,21 @@
 import { unzipSync } from "fflate";
 import { env } from "@/lib/env";
-import { outputKey, putObject } from "@/lib/storage";
-import type {
-  Generator3D,
-  GeneratorContext,
-  GeneratorInput,
-  GeneratorOutput,
+import {
+  deleteObject,
+  getObjectText,
+  outputKey,
+  putObject,
+  sceneStateKey,
+} from "@/lib/storage";
+import { readVideoInfo } from "./mp4";
+import {
+  PermanentError,
+  isPermanentError,
+  type Generator3D,
+  type GeneratorAsset,
+  type GeneratorContext,
+  type GeneratorInput,
+  type GeneratorOutput,
 } from "./types";
 
 const API_BASE = "https://api.kiriengine.app/api/v1/open";
@@ -16,6 +26,7 @@ const MAX_CONSECUTIVE_POLL_ERRORS = 5;
 // KIRI's video scan wants <=1920x1080 and <=3 min. We can't check resolution or
 // duration here, but a byte cap keeps a huge upload out of the worker's memory.
 const MAX_VIDEO_BYTES = 300 * 1024 * 1024;
+const MAX_VIDEO_SEC = 180;
 const MIN_IMAGES = 20;
 const MAX_IMAGES = 300;
 
@@ -25,6 +36,26 @@ const IMAGE_EXT: Record<string, string> = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
 };
+
+/** Upload filename extension per video type — sent with its real container. */
+const VIDEO_EXT: Record<string, string> = {
+  "video/mp4": ".mp4",
+  "video/quicktime": ".mov",
+};
+
+/** Saved after a task is created, so a retry resumes it rather than paying again. */
+type TaskMarker = { serialize: string; source: string; fingerprint: string; createdAt: string };
+
+async function readMarker(key: string): Promise<TaskMarker | null> {
+  const text = await getObjectText(key);
+  if (!text) return null;
+  try {
+    const m = JSON.parse(text) as TaskMarker;
+    return typeof m.serialize === "string" ? m : null;
+  } catch {
+    return null;
+  }
+}
 
 // getStatus: -1 uploading, 0 processing, 1 failed, 2 successful, 3 queuing, 4 expired
 const STATUS_OK = 2;
@@ -79,15 +110,18 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
  *
  * The upload and poll run inside this single blocking call, so one worker is
  * tied up for the (often long) duration of a run — scale with more workers.
- * A retry after the KIRI task was created starts a fresh task and spends more
- * credits.
+ *
+ * Every created task costs a KIRI credit, so: input KIRI would reject fails
+ * here first (PermanentError, no retries); a create is never auto-retried;
+ * and the created task's id is saved under the scene's state prefix so a
+ * retry after a timeout or crash resumes polling it instead of paying again.
  */
 export class KiriGenerator implements Generator3D {
   readonly name = "kiri";
 
   private auth(): Record<string, string> {
     if (!env.KIRI_API_KEY) {
-      throw new Error("KIRI_API_KEY is required when GENERATOR=kiri");
+      throw new PermanentError("KIRI_API_KEY is required when GENERATOR=kiri");
     }
     return { Authorization: `Bearer ${env.KIRI_API_KEY}` };
   }
@@ -96,61 +130,62 @@ export class KiriGenerator implements Generator3D {
     input: GeneratorInput,
     ctx: GeneratorContext,
   ): Promise<GeneratorOutput[]> {
+    this.auth(); // fail before any work if the key is missing
+
     const video = input.assets.find((a) => a.type === "VIDEO");
     const allImages = input.assets.filter((a) => a.type === "IMAGE").length;
     const images = input.assets.filter(
       (a) => a.type === "IMAGE" && a.mimeType in IMAGE_EXT,
     );
-
-    let serialize: string;
-    let source: string;
-
-    if (video) {
-      if (video.sizeBytes > MAX_VIDEO_BYTES) {
-        throw new Error(
-          `KIRI video is ${mb(video.sizeBytes)}; keep it under ${mb(MAX_VIDEO_BYTES)} (needs <=1080p and <=3 min)`,
-        );
-      }
-      ctx.log(`kiri: uploading video (${mb(video.sizeBytes)})`);
-      const form = this.baseForm();
-      const buf = await this.fetchBuffer(video.url, ctx.signal);
-      form.append(
-        "videoFile",
-        new Blob([part(buf)], { type: video.mimeType || "video/mp4" }),
-        "walkthrough.mp4",
-      );
-      serialize = await this.create(`${API_BASE}/photo/video`, form, ctx.signal);
-      source = "video";
-    } else if (images.length >= MIN_IMAGES) {
-      const use = images.slice(0, MAX_IMAGES);
-      ctx.log(`kiri: uploading ${use.length} image(s)`);
-      const form = this.baseForm();
-      let i = 0;
-      for (const img of use) {
-        if (ctx.signal.aborted) throw abortError();
-        const buf = await this.fetchBuffer(img.url, ctx.signal);
-        const name = `img-${String(i++).padStart(3, "0")}${IMAGE_EXT[img.mimeType]}`;
-        form.append(
-          "imagesFiles",
-          new Blob([part(buf)], { type: img.mimeType }),
-          name,
-        );
-      }
-      serialize = await this.create(`${API_BASE}/photo/image`, form, ctx.signal);
-      source = `${use.length} images`;
-    } else {
+    const useImages = images.length >= MIN_IMAGES;
+    if (!useImages && !video) {
       const skipped = allImages - images.length;
-      throw new Error(
+      throw new PermanentError(
         `KIRI needs a walkthrough video or at least ${MIN_IMAGES} JPEG/PNG photos; ` +
-          `this scene has ${video ? 1 : 0} video and ${images.length} usable photo(s)` +
+          `this scene has no video and ${images.length} usable photo(s)` +
           (skipped > 0
-            ? ` (${skipped} skipped — only JPEG and PNG are sent to KIRI)`
+            ? ` (${skipped} skipped — HEIC/WebP aren't sent to KIRI; set the camera to "Most Compatible" or export as JPEG)`
             : ""),
       );
     }
 
-    ctx.log(`kiri: task ${serialize} created`);
-    await this.poll(serialize, ctx);
+    // Photos win over video when there are enough: they're sharper than video
+    // frames, and they dodge KIRI's 1080p / 3-minute video limits.
+    const chosen = useImages ? images.slice(0, MAX_IMAGES) : [video!];
+    const markerKey = sceneStateKey(input.sceneId, "kiri-task.json");
+    const fingerprint = [
+      ...chosen.map((a) => a.storageKey),
+      env.KIRI_MODEL_QUALITY,
+      env.KIRI_TEXTURE_QUALITY,
+      env.KIRI_MASK,
+    ].join("|");
+
+    // A KIRI task costs a credit. If an earlier attempt already created one for
+    // exactly this input, resume it instead of paying again.
+    let serialize: string;
+    let source: string;
+    const marker = await readMarker(markerKey);
+    if (marker && marker.fingerprint === fingerprint) {
+      serialize = marker.serialize;
+      source = marker.source;
+      ctx.log(`kiri: resuming task ${serialize} from an earlier attempt`);
+    } else {
+      ({ serialize, source } = useImages
+        ? await this.createFromImages(chosen, ctx)
+        : await this.createFromVideo(video!, ctx));
+      const m: TaskMarker = { serialize, source, fingerprint, createdAt: new Date().toISOString() };
+      await putObject(markerKey, Buffer.from(JSON.stringify(m)), "application/json");
+      ctx.log(`kiri: task ${serialize} created`);
+    }
+
+    try {
+      await this.poll(serialize, ctx);
+    } catch (err) {
+      // KIRI gave up on this task: forget it, so a manual "Try again" starts a
+      // fresh one. Timeouts and network errors keep the marker and resume.
+      if (isPermanentError(err)) await deleteObject(markerKey);
+      throw err;
+    }
 
     const modelUrl = await this.modelZipUrl(serialize, ctx.signal);
     ctx.log("kiri: downloading model zip");
@@ -159,6 +194,7 @@ export class KiriGenerator implements Generator3D {
 
     const key = outputKey(input.sceneId, "glb");
     await putObject(key, glb, "model/gltf-binary");
+    await deleteObject(markerKey);
     ctx.log(`kiri: wrote ${glb.length} bytes to ${key}`);
 
     return [
@@ -179,6 +215,70 @@ export class KiriGenerator implements Generator3D {
     ];
   }
 
+  private async createFromImages(
+    images: GeneratorAsset[],
+    ctx: GeneratorContext,
+  ): Promise<{ serialize: string; source: string }> {
+    ctx.log(`kiri: uploading ${images.length} image(s)`);
+    const form = this.baseForm();
+    let i = 0;
+    for (const img of images) {
+      if (ctx.signal.aborted) throw abortError();
+      const buf = await this.fetchBuffer(img.url, ctx.signal);
+      const name = `img-${String(i++).padStart(3, "0")}${IMAGE_EXT[img.mimeType]}`;
+      form.append("imagesFiles", new Blob([part(buf)], { type: img.mimeType }), name);
+    }
+    const serialize = await this.create(`${API_BASE}/photo/image`, form, ctx.signal);
+    return { serialize, source: `${images.length} images` };
+  }
+
+  private async createFromVideo(
+    video: GeneratorAsset,
+    ctx: GeneratorContext,
+  ): Promise<{ serialize: string; source: string }> {
+    const ext = VIDEO_EXT[video.mimeType];
+    if (!ext) {
+      throw new PermanentError(
+        `KIRI takes MP4 or MOV video, not ${video.mimeType || "this format"} — or upload ${MIN_IMAGES}+ JPEG photos instead`,
+      );
+    }
+    if (video.sizeBytes > MAX_VIDEO_BYTES) {
+      throw new PermanentError(
+        `KIRI video is ${mb(video.sizeBytes)}; keep it under ${mb(MAX_VIDEO_BYTES)} (and <=1080p, <=3 min)`,
+      );
+    }
+    const buf = await this.fetchBuffer(video.url, ctx.signal);
+
+    // KIRI rejects >1080p or >3 min only after taking the upload, so check
+    // here, where a rejection is free.
+    const info = readVideoInfo(buf);
+    if (!info) {
+      throw new PermanentError(
+        "Couldn't read the video's resolution/length; re-export it as MP4, or upload JPEG photos instead",
+      );
+    }
+    const long = Math.max(info.width, info.height);
+    const short = Math.min(info.width, info.height);
+    const problems: string[] = [];
+    if (long > 1920 || short > 1080) {
+      problems.push(`it's ${info.width}x${info.height} (max 1920x1080 — record at 1080p, not 4K)`);
+    }
+    if (info.durationSec > MAX_VIDEO_SEC) {
+      problems.push(`it's ${Math.round(info.durationSec)} s long (max ${MAX_VIDEO_SEC} s)`);
+    }
+    if (problems.length > 0) {
+      throw new PermanentError(`KIRI won't accept this video: ${problems.join("; ")}`);
+    }
+
+    ctx.log(
+      `kiri: uploading video (${mb(video.sizeBytes)}, ${info.width}x${info.height}, ${Math.round(info.durationSec)} s)`,
+    );
+    const form = this.baseForm();
+    form.append("videoFile", new Blob([part(buf)], { type: video.mimeType }), `walkthrough${ext}`);
+    const serialize = await this.create(`${API_BASE}/photo/video`, form, ctx.signal);
+    return { serialize, source: "video" };
+  }
+
   private baseForm(): FormData {
     const f = new FormData();
     f.append("modelQuality", env.KIRI_MODEL_QUALITY);
@@ -194,12 +294,20 @@ export class KiriGenerator implements Generator3D {
     form: FormData,
     signal: AbortSignal,
   ): Promise<string> {
-    const data = await this.request<CreateData>(
-      url,
-      { method: "POST", headers: this.auth(), body: form },
-      signal,
-    );
-    if (!data.serialize) throw new Error("KIRI create returned no serialize id");
+    // Never auto-retry a create: if the request reached KIRI, a retry could
+    // start (and bill) a second task. A clean shutdown still requeues.
+    let data: CreateData;
+    try {
+      data = await this.request<CreateData>(
+        url,
+        { method: "POST", headers: this.auth(), body: form },
+        signal,
+      );
+    } catch (err) {
+      if (signal.aborted) throw abortError();
+      throw new PermanentError(`KIRI upload failed: ${(err as Error).message}`);
+    }
+    if (!data.serialize) throw new PermanentError("KIRI create returned no serialize id");
     return data.serialize;
   }
 
@@ -232,10 +340,12 @@ export class KiriGenerator implements Generator3D {
       }
       if (data.status === STATUS_OK) return;
       if (data.status === STATUS_FAILED) {
-        throw new Error("KIRI reconstruction failed");
+        throw new PermanentError(
+          "KIRI reconstruction failed — usually too little overlap, blur, or a plain/reflective subject",
+        );
       }
       if (data.status === STATUS_EXPIRED) {
-        throw new Error("KIRI task expired before it was collected");
+        throw new PermanentError("KIRI task expired before it was collected");
       }
 
       await sleep(POLL_INTERVAL_MS, ctx.signal);
